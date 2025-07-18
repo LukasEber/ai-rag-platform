@@ -1,0 +1,47 @@
+services:
+  client-gateway:
+    build:
+      context: ./client-gateway
+      args:
+        POSTGRES_URL: ${POSTGRES_URL}
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTH_SECRET=${AUTH_SECRET}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - POSTGRES_URL=${POSTGRES_URL}
+      - REDIS_URL=${REDIS_URL}
+      - BLOB_READ_WRITE_TOKEN=${BLOB_READ_WRITE_TOKEN}
+      - AUTH_TRUST_HOST=true
+    command: sh -c "pnpm db:migrate && pnpm start"
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app-secret
+      POSTGRES_DB: client-gateway-db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+  
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
