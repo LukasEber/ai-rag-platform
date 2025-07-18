@@ -2,23 +2,17 @@
 import cx from 'classnames';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useState } from 'react';
-import type { Vote } from '@/lib/db/schema';
-import { DocumentToolCall, DocumentToolResult } from './document';
 import { PencilEditIcon, SparklesIcon } from './icons';
-import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
-import { PreviewAttachment } from './preview-attachment';
-import { Weather } from './weather';
 import equal from 'fast-deep-equal';
 import { cn, sanitizeText } from '@/lib/utils';
 import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { MessageEditor } from './message-editor';
-import { DocumentPreview } from './document-preview';
 import { MessageReasoning } from './message-reasoning';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
-import { useDataStream } from './data-stream-provider';
+import { Markdown } from './markdown';
 
 // Type narrowing is handled by TypeScript's control flow analysis
 // The AI SDK provides proper discriminated unions for tool calls
@@ -26,7 +20,6 @@ import { useDataStream } from './data-stream-provider';
 const PurePreviewMessage = ({
   chatId,
   message,
-  vote,
   isLoading,
   setMessages,
   regenerate,
@@ -35,7 +28,6 @@ const PurePreviewMessage = ({
 }: {
   chatId: string;
   message: ChatMessage;
-  vote: Vote | undefined;
   isLoading: boolean;
   setMessages: UseChatHelpers<ChatMessage>['setMessages'];
   regenerate: UseChatHelpers<ChatMessage>['regenerate'];
@@ -44,11 +36,6 @@ const PurePreviewMessage = ({
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
-  const attachmentsFromMessage = message.parts.filter(
-    (part) => part.type === 'file',
-  );
-
-  useDataStream();
 
   return (
     <AnimatePresence>
@@ -81,24 +68,6 @@ const PurePreviewMessage = ({
               'min-h-96': message.role === 'assistant' && requiresScrollPadding,
             })}
           >
-            {attachmentsFromMessage.length > 0 && (
-              <div
-                data-testid={`message-attachments`}
-                className="flex flex-row justify-end gap-2"
-              >
-                {attachmentsFromMessage.map((attachment) => (
-                  <PreviewAttachment
-                    key={attachment.url}
-                    attachment={{
-                      name: attachment.filename ?? 'file',
-                      contentType: attachment.mediaType,
-                      url: attachment.url,
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
             {message.parts?.map((part, index) => {
               const { type } = part;
               const key = `message-${message.id}-part-${index}`;
@@ -164,136 +133,12 @@ const PurePreviewMessage = ({
                   );
                 }
               }
-
-              if (type === 'tool-createDocument') {
-                const { toolCallId, state } = part;
-
-                if (state === 'input-available') {
-                  const { input } = part;
-                  return (
-                    <div key={toolCallId}>
-                      <DocumentPreview isReadonly={isReadonly} args={input} />
-                    </div>
-                  );
-                }
-
-                if (state === 'output-available') {
-                  const { output } = part;
-
-                  if ('error' in output) {
-                    return (
-                      <div
-                        key={toolCallId}
-                        className="text-red-500 p-2 border rounded"
-                      >
-                        Error: {String(output.error)}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={toolCallId}>
-                      <DocumentPreview
-                        isReadonly={isReadonly}
-                        result={output}
-                      />
-                    </div>
-                  );
-                }
-              }
-
-              if (type === 'tool-updateDocument') {
-                const { toolCallId, state } = part;
-
-                if (state === 'input-available') {
-                  const { input } = part;
-
-                  return (
-                    <div key={toolCallId}>
-                      <DocumentToolCall
-                        type="update"
-                        args={input}
-                        isReadonly={isReadonly}
-                      />
-                    </div>
-                  );
-                }
-
-                if (state === 'output-available') {
-                  const { output } = part;
-
-                  if ('error' in output) {
-                    return (
-                      <div
-                        key={toolCallId}
-                        className="text-red-500 p-2 border rounded"
-                      >
-                        Error: {String(output.error)}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={toolCallId}>
-                      <DocumentToolResult
-                        type="update"
-                        result={output}
-                        isReadonly={isReadonly}
-                      />
-                    </div>
-                  );
-                }
-              }
-
-              if (type === 'tool-requestSuggestions') {
-                const { toolCallId, state } = part;
-
-                if (state === 'input-available') {
-                  const { input } = part;
-                  return (
-                    <div key={toolCallId}>
-                      <DocumentToolCall
-                        type="request-suggestions"
-                        args={input}
-                        isReadonly={isReadonly}
-                      />
-                    </div>
-                  );
-                }
-
-                if (state === 'output-available') {
-                  const { output } = part;
-
-                  if ('error' in output) {
-                    return (
-                      <div
-                        key={toolCallId}
-                        className="text-red-500 p-2 border rounded"
-                      >
-                        Error: {String(output.error)}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div key={toolCallId}>
-                      <DocumentToolResult
-                        type="request-suggestions"
-                        result={output}
-                        isReadonly={isReadonly}
-                      />
-                    </div>
-                  );
-                }
-              }
             })}
 
             {!isReadonly && (
               <MessageActions
                 key={`action-${message.id}`}
-                chatId={chatId}
                 message={message}
-                vote={vote}
                 isLoading={isLoading}
               />
             )}
@@ -312,7 +157,6 @@ export const PreviewMessage = memo(
     if (prevProps.requiresScrollPadding !== nextProps.requiresScrollPadding)
       return false;
     if (!equal(prevProps.message.parts, nextProps.message.parts)) return false;
-    if (!equal(prevProps.vote, nextProps.vote)) return false;
 
     return false;
   },
