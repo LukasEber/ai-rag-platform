@@ -22,6 +22,8 @@ import {
   message,
   type DBMessage,
   type Chat,
+  contextFile,
+  project,
 } from './schema';
 import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
@@ -180,5 +182,55 @@ export async function getMessageCountByUserId({ id, differenceInHours }: { id: s
     return stats?.count ?? 0;
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to get message count by user id');
+  }
+}
+
+export async function createProject({ name, userId, visibility, vectorCollection }: { name: string; userId: string; visibility: VisibilityType; vectorCollection: string }) {
+  try {
+    return await db.insert(project).values({ id: crypto.randomUUID(), name, userId, visibility, vectorCollection, createdAt: new Date() });
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to create project');
+  }
+}
+
+export async function getProjectsByUserId({ userId }: { userId: string }) {
+  try {
+    return await db.select().from(project).where(eq(project.userId, userId)).orderBy(desc(project.createdAt));
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to get projects');
+  }
+}
+
+export async function deleteProjectById({ id }: { id: string }) {
+  try {
+    await db.delete(contextFile).where(eq(contextFile.projectId, id));
+    return await db.delete(project).where(eq(project.id, id)).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to delete project');
+  }
+}
+
+
+export async function createContextFile({ projectId, fileName, mimeType, fileSize, embedded, chunkCount }: { projectId: string; fileName: string; mimeType: string; fileSize: number; embedded?: boolean; chunkCount?: number }) {
+  try {
+    return await db.insert(contextFile).values({ id: crypto.randomUUID(), projectId, fileName, mimeType, fileSize, embedded: embedded ?? false, chunkCount, createdAt: new Date() });
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to create context file');
+  }
+}
+
+export async function getContextFilesByProjectId({ projectId }: { projectId: string }) {
+  try {
+    return await db.select().from(contextFile).where(eq(contextFile.projectId, projectId)).orderBy(desc(contextFile.createdAt));
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to get context files');
+  }
+}
+
+export async function deleteContextFileById({ id }: { id: string }) {
+  try {
+    return await db.delete(contextFile).where(eq(contextFile.id, id)).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to delete context file');
   }
 }
