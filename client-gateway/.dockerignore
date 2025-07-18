@@ -1,0 +1,28 @@
+# dependencies
+node_modules
+.pnpm
+.pnpm-debug.log*
+
+# build artifacts
+.next
+dist
+out
+build
+
+# env & secrets
+.env
+.env*.local
+*.pem
+
+# Vercel & Turbo
+.vercel
+.turbo
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# system
+.DS_Store
