@@ -14,7 +14,7 @@ import { memo } from 'react';
 import { toast } from 'sonner';
 import type { ChatMessage } from '@/lib/types';
 
-export function PureMessageActions({
+function PureMessageActions({
   message,
   isLoading,
 }: {

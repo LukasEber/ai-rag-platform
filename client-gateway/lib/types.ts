@@ -4,16 +4,13 @@ import type { updateDocument } from './ai/tools/update-document';
 import type { requestSuggestions } from './ai/tools/request-suggestions';
 import type { InferUITool, UIMessage } from 'ai';
 
-import type { ArtifactKind } from '@/components/artifact';
-import type { Suggestion } from './db/schema';
+type DataPart = { type: 'append-message'; message: string };
 
-export type DataPart = { type: 'append-message'; message: string };
-
-export const messageMetadataSchema = z.object({
+const messageMetadataSchema = z.object({
   createdAt: z.string(),
 });
 
-export type MessageMetadata = z.infer<typeof messageMetadataSchema>;
+type MessageMetadata = z.infer<typeof messageMetadataSchema>;
 
 type createDocumentTool = InferUITool<ReturnType<typeof createDocument>>;
 type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
@@ -32,11 +29,9 @@ export type CustomUIDataTypes = {
   imageDelta: string;
   sheetDelta: string;
   codeDelta: string;
-  suggestion: Suggestion;
   appendMessage: string;
   id: string;
   title: string;
-  kind: ArtifactKind;
   clear: null;
   finish: null;
 };
