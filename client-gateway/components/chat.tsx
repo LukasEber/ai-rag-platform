@@ -21,6 +21,7 @@ import { useDataStream } from "./data-stream-provider";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useProjects } from '@/hooks/use-projects';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { usePathname } from 'next/navigation';
 
 export function Chat({
   id,
@@ -54,14 +55,16 @@ export function Chat({
   const { projects, fetchProjects, loading: projectsLoading } = useProjects();
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [persisting, setPersisting] = useState(false);
+  const pathname = usePathname();
 
   // Determine if this is a new chat (no projectId assigned)
   useEffect(() => {
-    if (!chatProjectIdRef.current || chatProjectIdRef.current === '') {
+    // Only show project dialog for new chats (on /chat, not /chat/[id])
+    if ((pathname === '/chat') && (!chatProjectIdRef.current || chatProjectIdRef.current === '')) {
       setShowProjectDialog(true);
       fetchProjects();
     }
-  }, [chatProjectIdRef, fetchProjects]);
+  }, [chatProjectIdRef, fetchProjects, pathname]);
 
   // Assign project to chat: just set state, no API call
   const assignProjectToChat = (projectId: string) => {

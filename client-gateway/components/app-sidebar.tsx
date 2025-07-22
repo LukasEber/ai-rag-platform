@@ -14,19 +14,24 @@ import {
   SidebarHeader,
   SidebarMenu,
   useSidebar,
+  SidebarMenuButton,
+  SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import Link from 'next/link';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { MessageCircle, FolderKanban } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 export function AppSidebar({ user }: { user: User | undefined }) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
+  const pathname = usePathname();
 
   return (
     <Sidebar className="group-data-[side=left]:border-r-0">
       <SidebarHeader>
         <SidebarMenu>
-          <div className="flex flex-row justify-between items-center">
+          <SidebarMenuItem>
             <Link
               href="/"
               onClick={() => {
@@ -38,24 +43,33 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                 AI RAG Demo
               </span>
             </Link>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  type="button"
-                  className="p-2 h-fit"
-                  onClick={() => {
-                    setOpenMobile(false);
-                    router.push('/');
-                    router.refresh();
-                  }}
-                >
-                  <PlusIcon />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent align="end">New Chat</TooltipContent>
-            </Tooltip>
-          </div>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith('/chat')}
+              size="lg"
+              tooltip="Chat"
+            >
+              <Link href="/chat" className="flex items-center gap-2">
+                <MessageCircle className="w-5 h-5" />
+                <span>Chat</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname.startsWith('/project')}
+              size="lg"
+              tooltip="Projects"
+            >
+              <Link href="/project" className="flex items-center gap-2">
+                <FolderKanban className="w-5 h-5" />
+                <span>Projects</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
