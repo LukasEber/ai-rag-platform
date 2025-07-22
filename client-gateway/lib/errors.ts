@@ -8,6 +8,7 @@ type ErrorType =
 
 type Surface =
   | 'chat'
+  | 'project'
   | 'auth'
   | 'api'
   | 'stream'
@@ -24,6 +25,7 @@ type ErrorVisibility = 'response' | 'log' | 'none';
 const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   database: 'log',
   chat: 'response',
+  project: 'response',
   auth: 'response',
   stream: 'response',
   api: 'response',

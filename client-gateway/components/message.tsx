@@ -12,6 +12,7 @@ import { MessageEditor } from './message-editor';
 import { MessageReasoning } from './message-reasoning';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import type { ChatMessage } from '@/lib/types';
+import { useDataStream } from './data-stream-provider';
 import { Markdown } from './markdown';
 
 // Type narrowing is handled by TypeScript's control flow analysis
@@ -36,6 +37,7 @@ const PurePreviewMessage = ({
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
+   useDataStream();
 
   return (
     <AnimatePresence>

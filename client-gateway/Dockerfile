@@ -1,5 +1,8 @@
 FROM node:18-alpine AS builder
 
+ARG OPENAI_API_KEY
+ENV OPENAI_API_KEY=${OPENAI_API_KEY}
+
 WORKDIR /app
 
 RUN npm install -g pnpm

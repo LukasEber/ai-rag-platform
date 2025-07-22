@@ -22,8 +22,10 @@ import {
   message,
   type DBMessage,
   type Chat,
+  type Project,
   contextFile,
   project,
+  stream
 } from './schema';
 import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
@@ -31,6 +33,8 @@ import { ChatSDKError } from '../errors';
 
 const client = postgres(process.env.POSTGRES_URL!);
 const db = drizzle(client);
+
+export { db, project };
 
 export async function getUser(email: string): Promise<Array<User>> {
   try {
@@ -49,10 +53,12 @@ export async function createUser(email: string, password: string) {
   }
 }
 
-export async function saveChat({ id, userId, title, visibility }: { id: string; userId: string; title: string; visibility: VisibilityType }) {
+export async function saveChat({ id, userId, title, visibility, projectId }: { id: string; userId: string; title: string; visibility: VisibilityType; projectId?: string }) {
+  console.log('saveChat', id, userId, title, visibility, projectId);
   try {
-    return await db.insert(chat).values({ id, createdAt: new Date(), userId, title, visibility });
-  } catch {
+    const values: any = { id, createdAt: new Date(), userId, title, visibility };
+    if (projectId) values.projectId = projectId;
+    return await db.insert(chat).values(values);  } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to save chat');
   }
 }
@@ -60,6 +66,7 @@ export async function saveChat({ id, userId, title, visibility }: { id: string; 
 export async function deleteChatById({ id }: { id: string }) {
   try {
     await db.delete(message).where(eq(message.chatId, id));
+    await db.delete(stream).where(eq(stream.chatId, id)); // Delete streams before deleting chat
     const [chatsDeleted] = await db.delete(chat).where(eq(chat.id, id)).returning();
     return chatsDeleted;
   } catch {
@@ -162,6 +169,44 @@ export async function deleteMessagesByChatIdAfterTimestamp({
   }
 }
 
+
+export async function createStreamId({
+  streamId,
+  chatId,
+}: {
+  streamId: string;
+  chatId: string;
+}) {
+  try {
+    await db
+      .insert(stream)
+      .values({ id: streamId, chatId, createdAt: new Date() });
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to create stream id',
+    );
+  }
+}
+
+export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
+  try {
+    const streamIds = await db
+      .select({ id: stream.id })
+      .from(stream)
+      .where(eq(stream.chatId, chatId))
+      .orderBy(asc(stream.createdAt))
+      .execute();
+
+    return streamIds.map(({ id }) => id);
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get stream ids by chat id',
+    );
+  }
+}
+
 export async function updateChatVisiblityById({ chatId, visibility }: { chatId: string; visibility: 'private' | 'public'; }) {
   try {
     return await db.update(chat).set({ visibility }).where(eq(chat.id, chatId));
@@ -185,9 +230,9 @@ export async function getMessageCountByUserId({ id, differenceInHours }: { id: s
   }
 }
 
-export async function createProject({ name, userId, visibility, vectorCollection }: { name: string; userId: string; visibility: VisibilityType; vectorCollection: string }) {
+export async function createProject({ name, userId, visibility, vectorCollection }: { name: string; userId: string; visibility: VisibilityType; vectorCollection: string }): Promise<Project[]> {
   try {
-    return await db.insert(project).values({ id: crypto.randomUUID(), name, userId, visibility, vectorCollection, createdAt: new Date() });
+    return await db.insert(project).values({ id: crypto.randomUUID(), name, userId, visibility, vectorCollection, createdAt: new Date() }).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to create project');
   }
@@ -207,6 +252,15 @@ export async function deleteProjectById({ id }: { id: string }) {
     return await db.delete(project).where(eq(project.id, id)).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to delete project');
+  }
+}
+
+export async function getProjectById({ id }: { id: string }) {
+  try {
+    const [selectedProject] = await db.select().from(project).where(eq(project.id, id));
+    return selectedProject;
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to get project by id');
   }
 }
 

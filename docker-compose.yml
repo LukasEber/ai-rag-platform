@@ -3,15 +3,16 @@ services:
     build:
       context: ./client-gateway
       args:
-        POSTGRES_URL: ${POSTGRES_URL}
+        OPENAI_API_KEY: ${OPENAI_API_KEY}
     ports:
       - "3000:3000"
     environment:
       - AUTH_SECRET=${AUTH_SECRET}
       - XAI_API_KEY=${XAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - POSTGRES_URL=${POSTGRES_URL}
       - REDIS_URL=${REDIS_URL}
-      - BLOB_READ_WRITE_TOKEN=${BLOB_READ_WRITE_TOKEN}
+      - VECTOR_DB_URL=${VECTOR_DB_URL}
       - AUTH_TRUST_HOST=true
     command: sh -c "pnpm db:migrate && pnpm start"
   postgres:

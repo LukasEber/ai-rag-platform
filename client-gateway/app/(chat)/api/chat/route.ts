@@ -9,6 +9,7 @@ import {
 import { auth } from '@/app/(auth)/auth';
 import { type RequestHints, systemPrompt } from '@/lib/ai/prompts';
 import {
+  createStreamId,
   deleteChatById,
   getChatById,
   getMessagesByChatId,
@@ -21,46 +22,21 @@ import { isProductionEnvironment } from '@/lib/constants';
 import { myProvider } from '@/lib/ai/providers';
 import { postRequestBodySchema, type PostRequestBody } from './schema';
 import { geolocation } from '@vercel/functions';
-import {
-  createResumableStreamContext,
-  type ResumableStreamContext,
-} from 'resumable-stream';
-import { after } from 'next/server';
 import { ChatSDKError } from '@/lib/errors';
 import type { ChatMessage } from '@/lib/types';
 import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
-
-export const maxDuration = 60;
-
-let globalStreamContext: ResumableStreamContext | null = null;
-
-export function getStreamContext() {
-  if (!globalStreamContext) {
-    try {
-      globalStreamContext = createResumableStreamContext({
-        waitUntil: after,
-      });
-    } catch (error: any) {
-      if (error.message.includes('REDIS_URL')) {
-        console.log(
-          ' > Resumable streams are disabled due to missing REDIS_URL',
-        );
-      } else {
-        console.error(error);
-      }
-    }
-  }
-
-  return globalStreamContext;
-}
+import { queryProjectChunks } from '@/lib/vector/query';
+import { getStreamContext } from '@/lib/db/utils';
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
   try {
     const json = await request.json();
+    console.log('json', json);
     requestBody = postRequestBodySchema.parse(json);
+    console.log('requestBody', requestBody);
   } catch (_) {
     return new ChatSDKError('bad_request:api').toResponse();
   }
@@ -71,11 +47,13 @@ export async function POST(request: Request) {
       message,
       selectedChatModel,
       selectedVisibilityType,
+      projectId,
     }: {
       id: string;
       message: ChatMessage;
       selectedChatModel: ChatModel['id'];
       selectedVisibilityType: VisibilityType;
+      projectId?: string;
     } = requestBody;
 
     const session = await auth();
@@ -91,11 +69,20 @@ export async function POST(request: Request) {
         message,
       });
 
+      console.log('chat', chat);
+      console.log('projectId', projectId);
+      console.log('selectedVisibilityType', selectedVisibilityType);
+      console.log('title', title);
+      console.log('id', id);
+      console.log('userId', session.user.id);
+
+
       await saveChat({
         id,
         userId: session.user.id,
         title,
         visibility: selectedVisibilityType,
+        projectId: projectId ? projectId : undefined,
       });
     } else {
       if (chat.userId !== session.user.id) {
@@ -120,7 +107,6 @@ export async function POST(request: Request) {
           id: message.id,
           role: 'user',
           parts: message.parts,
-          attachments: [],
           createdAt: new Date(),
         },
       ],
@@ -129,11 +115,19 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
+    let contextText = '';
+
+if (projectId) {
+  const relevantChunks = await queryProjectChunks(projectId, message.parts.map((p: any) => p.text).join(' '));
+  contextText = relevantChunks.map(c => c.text).join('\n\n');
+}
+
+    console.log('contextText', contextText);
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
           model: myProvider.languageModel(selectedChatModel),
-          system: systemPrompt({ selectedChatModel, requestHints }),
+          system: systemPrompt({ selectedChatModel, requestHints, context: contextText }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
           experimental_activeTools:
@@ -167,7 +161,6 @@ export async function POST(request: Request) {
             role: message.role,
             parts: message.parts,
             createdAt: new Date(),
-            attachments: [],
             chatId: id,
           })),
         });

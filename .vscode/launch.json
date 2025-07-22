@@ -1,0 +1,18 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Node in client-gateway",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/client-gateway/index.ts", // oder index.ts etc.
+      "cwd": "${workspaceFolder}/client-gateway",
+      "runtimeArgs": ["--loader", "ts-node/esm"], // falls TS/ESM
+      "envFile": "${workspaceFolder}/client-gateway/.env",
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
+}

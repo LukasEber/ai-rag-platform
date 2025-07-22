@@ -5,6 +5,7 @@ import type { UseChatHelpers } from '@ai-sdk/react';
 import { motion } from 'framer-motion';
 import { useMessages } from '@/hooks/use-messages';
 import type { ChatMessage } from '@/lib/types';
+import { useDataStream } from './data-stream-provider';
 
 interface MessagesProps {
   chatId: string;
@@ -34,6 +35,7 @@ function PureMessages({
     status,
   });
 
+   useDataStream();
 
   return (
     <div
