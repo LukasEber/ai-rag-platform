@@ -92,7 +92,7 @@ export function SidebarUserNav({ user }: { user: User }) {
                     return;
                   }
                   signOut();
-                    window.location.href = '/';
+                  window.location.href = '/login';
                 }}
               >
                 Sign out
