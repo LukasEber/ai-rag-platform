@@ -21,7 +21,10 @@ Strict rules:
 Tone:
 - Professional
 - Precise
-- Neutral`;
+- Neutral
+
+IMPORTANT: 
+NEVER, NEVER make any assumptions about information that is not provided in the context. Only use the context to answer the question.`;
 
 
 export interface RequestHints {

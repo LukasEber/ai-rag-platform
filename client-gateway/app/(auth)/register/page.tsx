@@ -15,7 +15,6 @@ export default function Page() {
   const router = useRouter();
 
   const [email, setEmail] = useState('');
-  const [isSuccessful, setIsSuccessful] = useState(false);
 
   const [state, formAction] = useActionState<RegisterActionState, FormData>(
     register,
@@ -27,6 +26,12 @@ export default function Page() {
   const { update: updateSession } = useSession();
 
   useEffect(() => {
+    if (state.status === 'success') {
+      toast({ type: 'success', description: 'Account created successfully!' });
+  
+      window.location.href = '/project';
+    }
+  
     if (state.status === 'user_exists') {
       toast({ type: 'error', description: 'Account already exists!' });
     } else if (state.status === 'failed') {
@@ -36,15 +41,10 @@ export default function Page() {
         type: 'error',
         description: 'Failed validating your submission!',
       });
-    } else if (state.status === 'success') {
-      toast({ type: 'success', description: 'Account created successfully!' });
-
-      setIsSuccessful(true);
-      updateSession();
-      router.refresh();
     }
-  }, [state, router, updateSession]);
-
+  }, [state.status]);
+  
+  
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get('email') as string);
     formAction(formData);
@@ -60,7 +60,7 @@ export default function Page() {
           </p>
         </div>
         <AuthForm action={handleSubmit} defaultEmail={email}>
-          <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
+          <SubmitButton isSuccessful={false}>Sign Up</SubmitButton>
           <p className="text-center text-sm text-gray-600 mt-4 dark:text-zinc-400">
             {'Already have an account? '}
             <Link

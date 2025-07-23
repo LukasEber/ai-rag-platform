@@ -83,7 +83,7 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
 
   return (
     <div className="overflow-x-auto w-full max-w-6xl mx-auto">
-      <table className="min-w-full divide-y divide-border bg-card rounded-lg">
+      <table className="min-w-[700px] divide-y divide-border bg-card rounded-lg">
         <thead>
           {table.getHeaderGroups().map(headerGroup => (
             <tr key={headerGroup.id}>

@@ -84,7 +84,7 @@ export default async function RootLayout({
         >
           <Toaster position="top-center" />
           <SessionProvider>
-            <SidebarProvider defaultOpen={!isCollapsed}>
+            <SidebarProvider defaultOpen={true}>
               <AppSidebar user={session?.user} />
               <SidebarInset>{children}</SidebarInset>
             </SidebarProvider>
