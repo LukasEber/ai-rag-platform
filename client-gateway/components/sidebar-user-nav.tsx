@@ -91,9 +91,8 @@ export function SidebarUserNav({ user }: { user: User }) {
 
                     return;
                   }
-                    signOut({
-                      redirectTo: '/',
-                    });
+                  signOut();
+                    window.location.href = '/';
                 }}
               >
                 Sign out
