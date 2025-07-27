@@ -130,14 +130,6 @@ if (projectId) {
           system: systemPrompt({ selectedChatModel, requestHints, context: contextText }),
           messages: convertToModelMessages(uiMessages),
           stopWhen: stepCountIs(5),
-          experimental_activeTools:
-            selectedChatModel === 'chat-model-reasoning'
-              ? []
-              : [
-                  'createDocument',
-                  'updateDocument',
-                  'requestSuggestions',
-                ],
           experimental_transform: smoothStream({ chunking: 'word' }),
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
@@ -185,6 +177,9 @@ if (projectId) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();
     }
+
+    console.error('Unhandled error in POST /chat', error);
+    return new ChatSDKError('internal_server_error:api').toResponse();
   }
 }
 

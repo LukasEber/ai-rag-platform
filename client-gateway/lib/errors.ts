@@ -4,7 +4,8 @@ type ErrorType =
   | 'forbidden'
   | 'not_found'
   | 'rate_limit'
-  | 'offline';
+  | 'offline'
+  | 'internal_server_error';
 
 type Surface =
   | 'chat'
@@ -109,6 +110,9 @@ function getMessageByErrorCode(errorCode: ErrorCode): string {
     case 'bad_request:document':
       return 'The request to create or update the document was invalid. Please check your input and try again.';
 
+    case 'internal_server_error:api':
+      return 'An internal server error occurred. Please try again later.';
+
     default:
       return 'Something went wrong. Please try again later.';
   }
@@ -128,6 +132,8 @@ function getStatusCodeByType(type: ErrorType) {
       return 429;
     case 'offline':
       return 503;
+    case 'internal_server_error':
+      return 500;
     default:
       return 500;
   }
