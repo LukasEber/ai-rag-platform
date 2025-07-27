@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { auth } from '@/app/(auth)/auth';
 import { getProjectsByUserId, createProject, getProjectById, getContextFilesByProjectId, db, project as projectTable, deleteContextFileById, deleteProjectById, createContextFile } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
-import { upsertProjectChunk, deleteProjectVectorCollection } from '@/lib/vector/query';
+import {  deleteProjectVectorCollection, ingestFilesToProject } from '@/lib/vector/query';
 import type { VisibilityType } from '@/components/visibility-selector';
 import type { Project } from '@/lib/db/schema';
 import pdfParse from 'pdf-parse'; 
@@ -88,38 +88,8 @@ export async function POST(request: Request) {
     if (!project) {
       return new ChatSDKError('bad_request:api', 'Failed to create project, project did not exist').toResponse();
     }
-    for (const file of files) {
-      if (file && file.size > 0) {
-        const buf = Buffer.from(await file.arrayBuffer());
-        let text = '';
-        if (file.type === 'application/pdf') {
-          const { text: txt } = await pdfParse(buf);
-          text = txt;
-        } else {
-          text = buf.toString('utf-8');
-        }
-        if (!text || text.trim() === '') {
-          console.warn('[Ingestion] No text extracted from file.');
-        }
-        const CHUNK_SIZE = 8000;
-        const OVERLAP = 2000;
-        const chunks: string[] = [];
-        for (let i = 0; i < text.length; i += CHUNK_SIZE - OVERLAP) {
-          chunks.push(text.slice(i, i + CHUNK_SIZE));
-        }
-        for (let idx = 0; idx < chunks.length; idx++) {
-          await upsertProjectChunk(project.id, chunks[idx], { chunkIndex: idx });
-        }
-        await createContextFile({
-          projectId: project.id,
-          fileName: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-          embedded: false,
-          chunkCount: chunks.length,
-        });
-      }
-    }
+    await ingestFilesToProject(files, project.id);
+
     return Response.json(project);
   } catch (e) {
     return new ChatSDKError('bad_request:api', 'File upload failed').toResponse();
@@ -152,36 +122,9 @@ export async function PATCH(request: NextRequest) {
     .where(eq(projectTable.id, id));
   // Handle new files
   const files = form.getAll('files') as File[];
-  for (const file of files) {
-    if (file && file.size > 0) {
-      const buf = Buffer.from(await file.arrayBuffer());
-      let text = '';
-      if (file.type === 'application/pdf') {
-        const { text: txt } = await pdfParse(buf);
-        text = txt;
-      } else {
-        text = buf.toString('utf-8');
-      }
-      const CHUNK_SIZE = 1000;
-      const OVERLAP = 200;
-      const chunks: string[] = [];
-      for (let i = 0; i < text.length; i += CHUNK_SIZE - OVERLAP) {
-        chunks.push(text.slice(i, i + CHUNK_SIZE));
-      }
-      for (let idx = 0; idx < chunks.length; idx++) {
-        await upsertProjectChunk(id, chunks[idx], { chunkIndex: idx });
-      }
-      // Save file metadata
-      await createContextFile({
-        projectId: id,
-        fileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-        embedded: false,
-        chunkCount: chunks.length,
-      });
-    }
-  }
+
+  await ingestFilesToProject(files, id);
+  
   // Return updated project and files
   const updatedProject = await getProjectById({ id });
   const updatedFiles = await getContextFilesByProjectId({ projectId: id });

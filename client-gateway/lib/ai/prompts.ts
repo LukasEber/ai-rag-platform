@@ -24,7 +24,10 @@ Tone:
 - Neutral
 
 IMPORTANT: 
-NEVER, NEVER make any assumptions about information that is not provided in the context. Only use the context to answer the question.`;
+NEVER, NEVER make any assumptions about information that is not provided in the context. Only use the context to answer the question.
+Do not mention internal scoring, retrieval mechanisms or vector database logic.
+If you receive multiple related context chunks, synthesize them holistically.
+`;
 
 
 export interface RequestHints {
@@ -48,6 +51,6 @@ export const systemPrompt = ({
 }) => {
   const requestPrompt = getRequestPromptFromHints(requestHints);
   const contextPrompt = context ? `\n\nContext:\n${context}` : '';
-
-  return `${regularPrompt}${contextPrompt}\n\n${requestPrompt}`;
+  const fullPrompt = `${regularPrompt}${contextPrompt}\n\n${requestPrompt}`;
+  return fullPrompt;
 };
