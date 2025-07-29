@@ -88,10 +88,12 @@ export async function POST(request: Request) {
     if (!project) {
       return new ChatSDKError('bad_request:api', 'Failed to create project, project did not exist').toResponse();
     }
+    console.log('ingesting files to project', files);
     await ingestFilesToProject(files, project.id);
 
     return Response.json(project);
   } catch (e) {
+    console.error('Error in POST /project', e);
     return new ChatSDKError('bad_request:api', 'File upload failed').toResponse();
   }
 }
@@ -124,7 +126,7 @@ export async function PATCH(request: NextRequest) {
   const files = form.getAll('files') as File[];
 
   await ingestFilesToProject(files, id);
-  
+
   // Return updated project and files
   const updatedProject = await getProjectById({ id });
   const updatedFiles = await getContextFilesByProjectId({ projectId: id });

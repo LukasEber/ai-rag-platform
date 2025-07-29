@@ -68,20 +68,26 @@ async function upsertChunks(projectId: string, chunks: string[], embeddings: num
 
 
 export async function ingestFilesToProject(files: File[], projectId: string) {
+  console.log('ingesting files to project', files);
   for (const file of files) {
     if (!file || file.size === 0) continue;
 
     const text = await extractTextFromFile(file);
+    console.log('text', text);
     if (!text.trim()) {
       console.warn(`[Ingestion] No text extracted from ${file.name}`);
       continue;
     }
 
     const chunks = await splitTextIntoChunks(text);
+    console.log('chunkLength', chunks.length);
+    console.log('chunks', chunks);
     const embeddings = await generateEmbeddings(chunks);
+    console.log('embeddingsLength', embeddings.length);
+    console.log('embeddings', embeddings);
     const chunkCount = await upsertChunks(projectId, chunks, embeddings);
-
-    await createContextFile({
+    console.log('chunkCount', chunkCount);
+    const contextFile = await createContextFile({
       projectId,
       fileName: file.name,
       mimeType: file.type,
@@ -89,6 +95,7 @@ export async function ingestFilesToProject(files: File[], projectId: string) {
       embedded: false,
       chunkCount,
     });
+    console.log('contextFile', contextFile);
   }
 }
 
