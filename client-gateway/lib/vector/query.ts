@@ -26,7 +26,7 @@ async function splitTextIntoChunks(text: string): Promise<string[]> {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 2000,
     chunkOverlap: 300,
-    separators: ['\n\n', '\n', '.', '!', '?', ';'],
+    separators: ['\n\n', '\n'],
   });
 
   const documents = await splitter.createDocuments([text]);
