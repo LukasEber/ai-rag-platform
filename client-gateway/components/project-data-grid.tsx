@@ -49,6 +49,24 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
         </span>
       ),
     }),
+    columnHelper.accessor('isIndexed', {
+      header: 'Status',
+      cell: info => (
+        <span className={`flex items-center gap-2 ${info.getValue() ? 'text-green-600' : 'text-orange-600'}`}>
+          {info.getValue() ? (
+            <>
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span>Einsatzbereit</span>
+            </>
+          ) : (
+            <>
+              <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
+              <span>Indexierung läuft...</span>
+            </>
+          )}
+        </span>
+      ),
+    }),
     columnHelper.accessor('createdAt', {
       header: 'Created',
       cell: info => new Date(info.getValue()).toLocaleString(),

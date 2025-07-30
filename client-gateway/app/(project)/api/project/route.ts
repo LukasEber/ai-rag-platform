@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { auth } from '@/app/(auth)/auth';
 import { getProjectsByUserId, createProject, getProjectById, getContextFilesByProjectId, db, project as projectTable, deleteContextFileById, deleteProjectById, createContextFile } from '@/lib/db/queries';
 import { ChatSDKError } from '@/lib/errors';
-import {  deleteProjectVectorCollection, ingestFilesToProject } from '@/lib/vector/query';
+import {  deleteProjectVectorCollection, ingestFilesToProject, ingestFilesToProjectAsync } from '@/lib/vector/query';
 import type { VisibilityType } from '@/components/visibility-selector';
 import type { Project } from '@/lib/db/schema';
 import pdfParse from 'pdf-parse'; 
@@ -88,8 +88,11 @@ export async function POST(request: Request) {
     if (!project) {
       return new ChatSDKError('bad_request:api', 'Failed to create project, project did not exist').toResponse();
     }
-    console.log('ingesting files to project', files);
-    await ingestFilesToProject(files, project.id);
+    console.log('starting async indexing for project', project.id);
+    // Start async indexing in background
+    if (files.length > 0) {
+      ingestFilesToProjectAsync(files, project.id);
+    }
 
     return Response.json(project);
   } catch (e) {
@@ -125,7 +128,11 @@ export async function PATCH(request: NextRequest) {
   // Handle new files
   const files = form.getAll('files') as File[];
 
-  await ingestFilesToProject(files, id);
+  // Start async indexing if new files are added
+  if (files.length > 0) {
+    console.log('starting async indexing for updated project', id);
+    ingestFilesToProjectAsync(files, id);
+  }
 
   // Return updated project and files
   const updatedProject = await getProjectById({ id });

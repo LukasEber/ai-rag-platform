@@ -28,6 +28,7 @@ export const project = pgTable('Project', {
     .notNull()
     .default('private'),
   vectorCollection: text('vector_collection').notNull(),
+  isIndexed: boolean('isIndexed').notNull().default(false),
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
@@ -44,6 +45,7 @@ export const contextFile = pgTable('ContextFile', {
 
   embedded: boolean('embedded').default(false),
   chunkCount: integer('chunkCount'),
+  indexingStatus: varchar('indexingStatus', { enum: ['pending', 'processing', 'completed', 'failed'] }).notNull().default('pending'),
 
   createdAt: timestamp('createdAt').defaultNow(),
 });

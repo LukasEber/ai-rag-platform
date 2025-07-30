@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { qdrant } from './qdrant';
 import { estimateTokenCount } from '../ai/utils';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { createContextFile } from '../db/queries';
+import { createContextFile, updateContextFileIndexingStatus, updateProjectIndexingStatus, updateContextFileChunkCount, getContextFilesByProjectId } from '../db/queries';
 import pdfParse from 'pdf-parse'; 
 
 const VECTOR_SIZE = 1536; // OpenAI embedding size
@@ -181,5 +181,84 @@ export async function deleteProjectVectorCollection(projectId: string) {
   } catch (err) {
     console.error(`[Qdrant] Failed to delete collection: ${collectionName}`, err);
     return false;
+  }
+}
+
+export async function ingestFilesToProjectAsync(files: File[], projectId: string) {
+  console.log('[Async Indexing] Starting background indexing for project', projectId);
+  
+  // Start background processing
+  setImmediate(async () => {
+    try {
+      await ingestFilesToProjectWithStatus(files, projectId);
+      console.log('[Async Indexing] Completed indexing for project', projectId);
+    } catch (error) {
+      console.error('[Async Indexing] Failed to index project', projectId, error);
+      // Mark project as failed
+      await updateProjectIndexingStatus({ id: projectId, isIndexed: false });
+    }
+  });
+}
+
+async function ingestFilesToProjectWithStatus(files: File[], projectId: string) {
+  console.log('[Async Indexing] Processing', files.length, 'files for project', projectId);
+  
+  for (const file of files) {
+    if (!file || file.size === 0) continue;
+
+    // Create context file with pending status
+    // Create context file with pending status
+    const contextFileResult = await createContextFile({
+      projectId,
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+      embedded: false,
+      chunkCount: 0,
+      indexingStatus: 'pending',
+    });
+
+    // Handle both array and single object return types
+    const contextFile = Array.isArray(contextFileResult) ? contextFileResult[0] : contextFileResult;
+    if (!contextFile || !contextFile.id) {
+      console.error(`[Async Indexing] Failed to create context file for ${file.name}`);
+      continue;
+    }
+
+    try {
+      // Update status to processing
+      await updateContextFileIndexingStatus({ id: contextFile.id, indexingStatus: 'processing' });
+
+      const text = await extractTextFromFile(file);
+      if (!text.trim()) {
+        console.warn(`[Async Indexing] No text extracted from ${file.name}`);
+        await updateContextFileIndexingStatus({ id: contextFile.id, indexingStatus: 'failed' });
+        continue;
+      }
+
+      const chunks = await splitTextIntoChunks(text);
+      const embeddings = await generateEmbeddings(chunks);
+      const chunkCount = await upsertChunks(projectId, chunks, embeddings);
+
+      // Update context file with completed status and chunk count
+      await updateContextFileIndexingStatus({ id: contextFile.id, indexingStatus: 'completed' });
+      await updateContextFileChunkCount({ id: contextFile.id, chunkCount });
+      
+      console.log(`[Async Indexing] Completed file ${file.name} with ${chunkCount} chunks`);
+    } catch (error) {
+      console.error(`[Async Indexing] Failed to process file ${file.name}:`, error);
+      await updateContextFileIndexingStatus({ id: contextFile.id, indexingStatus: 'failed' });
+    }
+  }
+
+  // Check if all files are completed
+  const allFiles = await getContextFilesByProjectId({ projectId });
+  const allCompleted = allFiles.every(file => file.indexingStatus === 'completed');
+  
+  if (allCompleted) {
+    await updateProjectIndexingStatus({ id: projectId, isIndexed: true });
+    console.log(`[Async Indexing] All files completed for project ${projectId}`);
+  } else {
+    console.log(`[Async Indexing] Some files still processing for project ${projectId}`);
   }
 }

@@ -158,21 +158,36 @@ export function Chat({
                 <div>No projects found. Please create a project first.</div>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {projects.map((project) => (
-                    <li key={project.id}>
-                      <button
-                        className={`w-full text-left px-4 py-2 rounded hover:bg-muted transition ${chatProjectIdRef.current === project.id ? 'bg-primary text-primary-foreground' : ''}`}
-                        disabled={persisting}
-                        onClick={() => {
-                          console.log('project.id', project.id);
-                          assignProjectToChat(project.id)
-                        }}
-                      >
-                        <span className="font-semibold">{project.name}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{project.visibility}</span>
-                      </button>
-                    </li>
-                  ))}
+                  {projects.map((project) => {
+                    const isIndexed = project.isIndexed;
+                    const isDisabled = !isIndexed || persisting;
+                    
+                    return (
+                      <li key={project.id}>
+                        <button
+                          className={`w-full text-left px-4 py-2 rounded transition ${
+                            isDisabled 
+                              ? 'opacity-50 cursor-not-allowed bg-muted' 
+                              : 'hover:bg-muted'
+                          } ${chatProjectIdRef.current === project.id ? 'bg-primary text-primary-foreground' : ''}`}
+                          disabled={isDisabled}
+                          onClick={() => {
+                            if (!isDisabled) {
+                              console.log('project.id', project.id);
+                              assignProjectToChat(project.id)
+                            }
+                          }}
+                          title={!isIndexed ? 'Noch nicht einsatzbereit - Indexierung läuft' : undefined}
+                        >
+                          <span className="font-semibold">{project.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">
+                            {project.visibility}
+                            {!isIndexed && ' • Indexierung läuft...'}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               )
             )}

@@ -72,7 +72,7 @@ export function ProjectOverview() {
     const ok = await createProject(form);
     setSubmitting(false);
     if (ok) {
-      toast({ type: "success", description: "Project created!" });
+      toast({ type: "success", description: "Projekt wird erstellt... Indexierung startet im Hintergrund." });
       setDialog({ type: null });
     } else {
       toast({ type: "error", description: error || "Failed to create project." });
@@ -84,7 +84,11 @@ export function ProjectOverview() {
     const ok = await updateProject(dialog.project.id, form);
     setSubmitting(false);
     if (ok) {
-      toast({ type: "success", description: "Project updated!" });
+      if (form.files.length > 0) {
+        toast({ type: "success", description: "Projekt aktualisiert... Neue Dateien werden im Hintergrund indexiert." });
+      } else {
+        toast({ type: "success", description: "Projekt aktualisiert!" });
+      }
       setDialog({ type: null });
     } else {
       toast({ type: "error", description: error || "Failed to update project." });

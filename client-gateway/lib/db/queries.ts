@@ -232,7 +232,7 @@ export async function getMessageCountByUserId({ id, differenceInHours }: { id: s
 
 export async function createProject({ name, userId, visibility, vectorCollection }: { name: string; userId: string; visibility: VisibilityType; vectorCollection: string }): Promise<Project[]> {
   try {
-    return await db.insert(project).values({ id: crypto.randomUUID(), name, userId, visibility, vectorCollection, createdAt: new Date() }).returning();
+    return await db.insert(project).values({ id: crypto.randomUUID(), name, userId, visibility, vectorCollection, isIndexed: false, createdAt: new Date() }).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to create project');
   }
@@ -265,9 +265,9 @@ export async function getProjectById({ id }: { id: string }) {
 }
 
 
-export async function createContextFile({ projectId, fileName, mimeType, fileSize, embedded, chunkCount }: { projectId: string; fileName: string; mimeType: string; fileSize: number; embedded?: boolean; chunkCount?: number }) {
+export async function createContextFile({ projectId, fileName, mimeType, fileSize, embedded, chunkCount, indexingStatus }: { projectId: string; fileName: string; mimeType: string; fileSize: number; embedded?: boolean; chunkCount?: number; indexingStatus?: 'pending' | 'processing' | 'completed' | 'failed' }) {
   try {
-    return await db.insert(contextFile).values({ id: crypto.randomUUID(), projectId, fileName, mimeType, fileSize, embedded: embedded ?? false, chunkCount, createdAt: new Date() });
+    return await db.insert(contextFile).values({ id: crypto.randomUUID(), projectId, fileName, mimeType, fileSize, embedded: embedded ?? false, chunkCount, indexingStatus: indexingStatus ?? 'pending', createdAt: new Date() }).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to create context file');
   }
@@ -286,5 +286,29 @@ export async function deleteContextFileById({ id }: { id: string }) {
     return await db.delete(contextFile).where(eq(contextFile.id, id)).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to delete context file');
+  }
+}
+
+export async function updateProjectIndexingStatus({ id, isIndexed }: { id: string; isIndexed: boolean }) {
+  try {
+    return await db.update(project).set({ isIndexed }).where(eq(project.id, id)).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to update project indexing status');
+  }
+}
+
+export async function updateContextFileIndexingStatus({ id, indexingStatus }: { id: string; indexingStatus: 'pending' | 'processing' | 'completed' | 'failed' }) {
+  try {
+    return await db.update(contextFile).set({ indexingStatus }).where(eq(contextFile.id, id)).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to update context file indexing status');
+  }
+}
+
+export async function updateContextFileChunkCount({ id, chunkCount }: { id: string; chunkCount: number }) {
+  try {
+    return await db.update(contextFile).set({ chunkCount }).where(eq(contextFile.id, id)).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to update context file chunk count');
   }
 }

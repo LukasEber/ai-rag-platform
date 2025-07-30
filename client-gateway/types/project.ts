@@ -6,6 +6,7 @@ export interface Project {
   visibility: 'public' | 'private';
   createdAt: string;
   vectorCollection: string;
+  isIndexed: boolean;
 }
 
 export interface ProjectFile {
@@ -14,6 +15,7 @@ export interface ProjectFile {
   mimeType: string;
   fileSize: number;
   createdAt: string;
+  indexingStatus?: 'pending' | 'processing' | 'completed' | 'failed';
 }
 
 export interface ProjectWithFiles extends Project {
