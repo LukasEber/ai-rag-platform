@@ -248,7 +248,21 @@ export async function getProjectsByUserId({ userId }: { userId: string }) {
 
 export async function deleteProjectById({ id }: { id: string }) {
   try {
+    // Delete in correct order to respect foreign key constraints
+    // 1. Delete messages for all chats in this project
+    const chats = await db.select({ id: chat.id }).from(chat).where(eq(chat.projectId, id));
+    for (const chatRecord of chats) {
+      await db.delete(message).where(eq(message.chatId, chatRecord.id));
+      await db.delete(stream).where(eq(stream.chatId, chatRecord.id));
+    }
+    
+    // 2. Delete chats for this project
+    await db.delete(chat).where(eq(chat.projectId, id));
+    
+    // 3. Delete context files for this project
     await db.delete(contextFile).where(eq(contextFile.projectId, id));
+    
+    // 4. Finally delete the project
     return await db.delete(project).where(eq(project.id, id)).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to delete project');

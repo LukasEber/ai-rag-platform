@@ -9,6 +9,12 @@ export function useProjects() {
   const [error, setError] = useState<string | null>(null);
   const [indexingProjects, setIndexingProjects] = useState<Set<string>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Separate loading states for different operations
+  const [createLoading, setCreateLoading] = useState(false);
+  const [updateLoading, setUpdateLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchProjects = useCallback(async () => {
     setLoading(true);
@@ -53,7 +59,7 @@ export function useProjects() {
         if (project) {
           toast({ 
             type: "success", 
-            description: `Projekt "${project.name}" ist jetzt vollständig indexiert und einsatzbereit.` 
+            description: `Project "${project.name}" is now fully indexed and ready to use.` 
           });
         }
       });
@@ -90,7 +96,7 @@ export function useProjects() {
   }, [indexingProjects, checkIndexingStatus]);
 
   const createProject = useCallback(async (form: ProjectFormData) => {
-    setLoading(true);
+    setCreateLoading(true);
     setError(null);
     try {
       const formData = new FormData();
@@ -108,20 +114,23 @@ export function useProjects() {
       const newProject = await res.json();
       
       // Optimistic update - add project with isIndexed: false
-      setProjects(prev => [newProject, ...prev]);
-      setIndexingProjects(prev => new Set([...prev, newProject.id]));
+      // Use queueMicrotask to ensure UI updates happen asynchronously
+      queueMicrotask(() => {
+        setProjects(prev => [newProject, ...prev]);
+        setIndexingProjects(prev => new Set([...prev, newProject.id]));
+      });
       
       return true;
     } catch (e) {
       setError((e as Error).message);
       return false;
     } finally {
-      setLoading(false);
+      setCreateLoading(false);
     }
   }, []);
 
   const updateProject = useCallback(async (projectId: string, form: ProjectFormData) => {
-    setLoading(true);
+    setUpdateLoading(true);
     setError(null);
     try {
       const formData = new FormData();
@@ -142,19 +151,23 @@ export function useProjects() {
       // If new files were added, mark project as not indexed and start polling
       if (form.files.length > 0) {
         // Optimistic update - mark project as not indexed
-        setProjects(prev => prev.map(p => 
-          p.id === projectId 
-            ? { ...p, isIndexed: false }
-            : p
-        ));
-        setIndexingProjects(prev => new Set([...prev, projectId]));
+        queueMicrotask(() => {
+          setProjects(prev => prev.map(p => 
+            p.id === projectId 
+              ? { ...p, isIndexed: false }
+              : p
+          ));
+          setIndexingProjects(prev => new Set([...prev, projectId]));
+        });
       } else {
         // No new files, just update the project data
-        setProjects(prev => prev.map(p => 
-          p.id === projectId 
-            ? { ...p, name: form.name, visibility: form.visibility }
-            : p
-        ));
+        queueMicrotask(() => {
+          setProjects(prev => prev.map(p => 
+            p.id === projectId 
+              ? { ...p, name: form.name, visibility: form.visibility }
+              : p
+          ));
+        });
       }
       
       return true;
@@ -162,12 +175,12 @@ export function useProjects() {
       setError((e as Error).message);
       return false;
     } finally {
-      setLoading(false);
+      setUpdateLoading(false);
     }
   }, []);
 
   const deleteProject = useCallback(async (projectId: string) => {
-    setLoading(true);
+    setDeleteLoading(true);
     setError(null);
     try {
       const res = await fetchWithErrorHandlers(`/api/project?id=${projectId}`, {
@@ -176,11 +189,13 @@ export function useProjects() {
       if (!res.ok) throw new Error('Failed to delete project.');
       
       // Optimistic update - remove project from list
-      setProjects(prev => prev.filter(p => p.id !== projectId));
-      setIndexingProjects(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(projectId);
-        return newSet;
+      queueMicrotask(() => {
+        setProjects(prev => prev.filter(p => p.id !== projectId));
+        setIndexingProjects(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(projectId);
+          return newSet;
+        });
       });
       
       return true;
@@ -188,12 +203,12 @@ export function useProjects() {
       setError((e as Error).message);
       return false;
     } finally {
-      setLoading(false);
+      setDeleteLoading(false);
     }
   }, []);
 
   const fetchProjectDetails = useCallback(async (projectId: string): Promise<ProjectWithFiles | null> => {
-    setLoading(true);
+    setDetailsLoading(true);
     setError(null);
     try {
       const res = await fetchWithErrorHandlers(`/api/project?id=${projectId}`, { method: 'GET' });
@@ -203,7 +218,7 @@ export function useProjects() {
       setError((e as Error).message);
       return null;
     } finally {
-      setLoading(false);
+      setDetailsLoading(false);
     }
   }, []);
 
@@ -212,6 +227,10 @@ export function useProjects() {
     loading,
     error,
     indexingProjects,
+    createLoading,
+    updateLoading,
+    deleteLoading,
+    detailsLoading,
     fetchProjects,
     createProject,
     updateProject,

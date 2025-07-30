@@ -25,6 +25,10 @@ export function ProjectOverview() {
     projects,
     loading,
     error,
+    createLoading,
+    updateLoading,
+    deleteLoading,
+    detailsLoading,
     fetchProjects,
     createProject,
     updateProject,
@@ -32,7 +36,6 @@ export function ProjectOverview() {
     fetchProjectDetails,
   } = useProjects();
   const [dialog, setDialog] = useState<DialogState>({ type: null });
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     fetchProjects();
@@ -40,26 +43,42 @@ export function ProjectOverview() {
 
   // Handlers
   const handleViewProject = async (project: Project) => {
-    setSubmitting(true);
-    const details = await fetchProjectDetails(project.id);
-    setSubmitting(false);
-    if (details) {
-      setDialog({ type: 'view', project: details });
-    } else {
+    try {
+      const details = await fetchProjectDetails(project.id);
+      if (details) {
+        setDialog({ type: 'view', project: details });
+      } else {
+        toast({ type: "error", description: "Failed to load project details." });
+      }
+    } catch (e) {
       toast({ type: "error", description: "Failed to load project details." });
     }
   };
   const handleEditProject = async (project: Project) => {
-    setSubmitting(true);
-    const details = await fetchProjectDetails(project.id);
-    setSubmitting(false);
-    if (details) {
-      setDialog({ type: 'edit', project: details });
-    } else {
+    // Prevent editing if project is still indexing
+    if (!project.isIndexed) {
+      toast({ type: "error", description: "Project cannot be edited while indexing is in progress." });
+      return;
+    }
+    
+    try {
+      const details = await fetchProjectDetails(project.id);
+      if (details) {
+        setDialog({ type: 'edit', project: details });
+      } else {
+        toast({ type: "error", description: "Failed to load project details." });
+      }
+    } catch (e) {
       toast({ type: "error", description: "Failed to load project details." });
     }
   };
   const handleDeleteProject = (project: Project) => {
+    // Prevent deleting if project is still indexing
+    if (!project.isIndexed) {
+      toast({ type: "error", description: "Project cannot be deleted while indexing is in progress." });
+      return;
+    }
+    
     setDialog({ type: 'delete', projectId: project.id });
   };
   const handleCreateProject = () => {
@@ -68,47 +87,52 @@ export function ProjectOverview() {
 
   // Dialog actions
   const handleCreate = async (form: ProjectFormData) => {
-    setSubmitting(true);
-    const ok = await createProject(form);
-    setSubmitting(false);
-    if (ok) {
-      toast({ type: "success", description: "Projekt wird erstellt... Indexierung startet im Hintergrund." });
-      setDialog({ type: null });
-    } else {
-      toast({ type: "error", description: error || "Failed to create project." });
+    try {
+      const ok = await createProject(form);
+      if (ok) {
+        toast({ type: "success", description: "Project created! Indexing started in the background." });
+        setDialog({ type: null });
+      } else {
+        toast({ type: "error", description: error || "Failed to create project." });
+      }
+    } catch (e) {
+      toast({ type: "error", description: "Failed to create project." });
     }
   };
   const handleEdit = async (form: ProjectFormData) => {
     if (dialog.type !== 'edit') return;
-    setSubmitting(true);
-    const ok = await updateProject(dialog.project.id, form);
-    setSubmitting(false);
-    if (ok) {
-      if (form.files.length > 0) {
-        toast({ type: "success", description: "Projekt aktualisiert... Neue Dateien werden im Hintergrund indexiert." });
+    try {
+      const ok = await updateProject(dialog.project.id, form);
+      if (ok) {
+        if (form.files.length > 0) {
+          toast({ type: "success", description: "Project updated! New files are being indexed in the background." });
+        } else {
+          toast({ type: "success", description: "Project updated!" });
+        }
+        setDialog({ type: null });
       } else {
-        toast({ type: "success", description: "Projekt aktualisiert!" });
+        toast({ type: "error", description: error || "Failed to update project." });
       }
-      setDialog({ type: null });
-    } else {
-      toast({ type: "error", description: error || "Failed to update project." });
+    } catch (e) {
+      toast({ type: "error", description: "Failed to update project." });
     }
   };
   const handleDelete = async () => {
     if (dialog.type !== 'delete') return;
-    setSubmitting(true);
-    const ok = await deleteProject(dialog.projectId);
-    setSubmitting(false);
-    if (ok) {
-      toast({ type: "success", description: "Project deleted!" });
-      setDialog({ type: null });
-    } else {
-      toast({ type: "error", description: error || "Failed to delete project." });
+    try {
+      const ok = await deleteProject(dialog.projectId);
+      if (ok) {
+        toast({ type: "success", description: "Project deleted!" });
+        setDialog({ type: null });
+      } else {
+        toast({ type: "error", description: error || "Failed to delete project." });
+      }
+    } catch (e) {
+      toast({ type: "error", description: "Failed to delete project." });
     }
   };
   const handleRemoveFile = async (fileId: string) => {
     if (dialog.type !== 'edit') return;
-    setSubmitting(true);
     try {
       const res = await fetch(`/api/project?id=${dialog.project.id}&fileId=${fileId}`, {
         method: 'DELETE',
@@ -120,8 +144,6 @@ export function ProjectOverview() {
       if (details) setDialog({ type: 'edit', project: details });
     } catch (e) {
       toast({ type: 'error', description: (e as Error).message });
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -151,7 +173,7 @@ export function ProjectOverview() {
       <ProjectCreateDialog
         open={dialog.type === 'create'}
         onOpenChange={open => setDialog(open ? { type: 'create' } : { type: null })}
-        loading={submitting}
+        loading={createLoading}
         onCreate={handleCreate}
         onClose={() => setDialog({ type: null })}
       />
@@ -160,7 +182,7 @@ export function ProjectOverview() {
         open={dialog.type === 'edit'}
         onOpenChange={open => setDialog(open && dialog.type === 'edit' && dialog.project ? dialog : { type: null })}
         project={dialog.type === 'edit' ? dialog.project : null}
-        loading={submitting}
+        loading={updateLoading || detailsLoading}
         onSave={handleEdit}
         onRemoveFile={handleRemoveFile}
         onClose={() => setDialog({ type: null })}
@@ -169,7 +191,7 @@ export function ProjectOverview() {
       <ProjectDeleteDialog
         open={dialog.type === 'delete'}
         onOpenChange={open => setDialog(open && dialog.type === 'delete' && dialog.projectId ? dialog : { type: null })}
-        loading={submitting}
+        loading={deleteLoading}
         onDelete={handleDelete}
         onClose={() => setDialog({ type: null })}
       />

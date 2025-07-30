@@ -56,12 +56,12 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
           {info.getValue() ? (
             <>
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>Einsatzbereit</span>
+              <span>Ready</span>
             </>
           ) : (
             <>
               <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-              <span>Indexierung läuft...</span>
+              <span>Indexing in progress...</span>
             </>
           )}
         </span>
@@ -74,13 +74,34 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
     {
       id: 'actions',
       header: 'Actions',
-      cell: ({ row }) => (
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => onView(row.original)}>View</Button>
-          <Button variant="outline" size="sm" onClick={() => onEdit(row.original)}>Edit</Button>
-          <Button variant="destructive" size="sm" onClick={() => onDelete(row.original)}>Delete</Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const project = row.original;
+        const isIndexing = !project.isIndexed;
+        
+        return (
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => onView(project)}>View</Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              disabled={isIndexing}
+              onClick={() => onEdit(project)}
+              title={isIndexing ? 'Not available during indexing' : undefined}
+            >
+              Edit
+            </Button>
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              disabled={isIndexing}
+              onClick={() => onDelete(project)}
+              title={isIndexing ? 'Not available during indexing' : undefined}
+            >
+              Delete
+            </Button>
+          </div>
+        );
+      },
     },
   ];
 

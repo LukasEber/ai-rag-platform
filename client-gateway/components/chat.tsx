@@ -177,12 +177,12 @@ export function Chat({
                               assignProjectToChat(project.id)
                             }
                           }}
-                          title={!isIndexed ? 'Noch nicht einsatzbereit - Indexierung läuft' : undefined}
+                          title={!isIndexed ? 'Not ready yet - indexing in progress' : undefined}
                         >
                           <span className="font-semibold">{project.name}</span>
                           <span className="ml-2 text-xs text-muted-foreground">
                             {project.visibility}
-                            {!isIndexed && ' • Indexierung läuft...'}
+                            {!isIndexed && ' • Indexing in progress...'}
                           </span>
                         </button>
                       </li>
