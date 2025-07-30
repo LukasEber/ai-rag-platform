@@ -180,7 +180,7 @@ export async function queryProjectChunks(
   let tokenSum = 0;
 
   for (const chunk of filtered) {
-    if (tokenSum + chunk.tokens > 150_000) break;
+    if (tokenSum + chunk.tokens > 35000) break;
     chunks.push({ text: chunk.text, score: chunk.score, tokens: chunk.tokens });
     tokenSum += chunk.tokens;
   }
