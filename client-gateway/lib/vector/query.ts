@@ -24,6 +24,23 @@ async function extractTextFromFile(file: File): Promise<string> {
   return buf.toString('utf-8');
 }
 
+export function isValidChunk(text: string): boolean {
+  if (!text) return false;
+
+  const trimmed = text.trim();
+
+  if (trimmed.length < 5) return false;
+
+  if (/^[\s\.\,\-\–\—\*\_]+$/.test(trimmed)) return false;
+
+  if (/^(.)\1{4,}$/.test(trimmed)) return false;
+
+  if (trimmed.split(/\s+/).filter(w => w.length > 1).length < 3) return false;
+
+  return true;
+}
+
+
 async function splitTextIntoChunks(text: string): Promise<string[]> {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 2000,
@@ -156,6 +173,7 @@ export async function queryProjectChunks(
       score: point.score,
       tokens: estimateTokenCount((point.payload as any).text),
     }))
+    .filter(chunk => isValidChunk(chunk.text))
     .sort((a, b) => b.score - a.score);
 
   const chunks: Array<{ text: string; score: number; tokens: number }> = [];
@@ -187,7 +205,6 @@ export async function deleteProjectVectorCollection(projectId: string) {
 export async function ingestFilesToProjectAsync(files: File[], projectId: string) {
   console.log('[Async Indexing] Starting background indexing for project', projectId);
   
-  // Start background processing
   setImmediate(async () => {
     try {
       await ingestFilesToProjectWithStatus(files, projectId);
@@ -206,8 +223,6 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
   for (const file of files) {
     if (!file || file.size === 0) continue;
 
-    // Create context file with pending status
-    // Create context file with pending status
     const contextFileResult = await createContextFile({
       projectId,
       fileName: file.name,
@@ -236,7 +251,7 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
         continue;
       }
 
-      const chunks = await splitTextIntoChunks(text);
+      const chunks = await splitTextIntoChunks(text).then(chunks => chunks.filter(isValidChunk));
       const embeddings = await generateEmbeddings(chunks);
       const chunkCount = await upsertChunks(projectId, chunks, embeddings);
 
