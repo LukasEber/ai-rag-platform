@@ -156,39 +156,53 @@ export async function ingestFilesToProject(files: File[], projectId: string) {
 export async function queryProjectChunks(
   projectId: string,
   query: string
-): Promise<Array<{ text: string; score: number }>> {
+): Promise<Array<{ text: string; score: number; tokens: number }>> {
   const collectionName = getCollectionName(projectId);
   const embedding = await embedText(query);
 
   const searchResult = await qdrant.search(collectionName, {
     vector: embedding,
-    limit: 50, // viele holen, um Auswahl zu ermöglichen
+    limit: 50,
     with_payload: true,
-    score_threshold: 0.5,
+    score_threshold: 0.5, 
   });
 
-  const filtered = searchResult
-    .map((point) => ({
-      text: (point.payload as any).text,
-      score: point.score,
-      tokens: estimateTokenCount((point.payload as any).text),
-    }))
-    .filter(chunk => isValidChunk(chunk.text))
+  const rawFiltered = searchResult.filter(p => {
+    const text = (p.payload as any).text;
+    return p.score >= 0.5 && isValidChunk(text);
+  });
+
+  const mapped = rawFiltered
+    .map(p => {
+      const text = (p.payload as any).text;
+      return {
+        text,
+        score: p.score,
+        tokens: estimateTokenCount(text),
+      };
+    })
     .sort((a, b) => b.score - a.score);
 
   const chunks: Array<{ text: string; score: number; tokens: number }> = [];
   let tokenSum = 0;
+  const TOKEN_BUDGET = 35_000;
 
-  for (const chunk of filtered) {
-    if (tokenSum + chunk.tokens > 35000) break;
-    chunks.push({ text: chunk.text, score: chunk.score, tokens: chunk.tokens });
+  for (const chunk of mapped) {
+    if (tokenSum + chunk.tokens > TOKEN_BUDGET) break;
+    chunks.push(chunk);
     tokenSum += chunk.tokens;
   }
 
-  //console.log(chunks.map(c => ({ score: c.score, tokens: c.tokens, preview: c.text.slice(0, 50) })));
+  if (chunks.length === 0 && mapped.length > 0) {
+    const top = mapped[0];
+    if (top.score > 0.3) {
+      return [top];
+    }
+  }
 
   return chunks;
 }
+
 
 export async function deleteProjectVectorCollection(projectId: string) {
   const collectionName = getCollectionName(projectId);
