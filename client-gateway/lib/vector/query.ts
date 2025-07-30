@@ -9,6 +9,7 @@ import pdfParse from 'pdf-parse';
 const VECTOR_SIZE = 1536; // OpenAI embedding size
 const DISTANCE = 'Cosine';
 const MAX_TOKENS_PER_BATCH = 270_000;
+const MAX_POINTS_PER_BATCH = 1200;
 
 function getCollectionName(projectId: string) {
   return `project_${projectId}`;
@@ -74,21 +75,34 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   return result;
 }
 
-async function upsertChunks(projectId: string, chunks: string[], embeddings: number[][]) {
+export async function upsertChunks(
+  projectId: string,
+  chunks: string[],
+  embeddings: number[][]
+): Promise<number> {
   const collectionName = await ensureQdrantCollection(projectId);
 
-  const points = chunks.map((text, idx) => ({
-    id: randomUUID(),
-    vector: embeddings[idx],
-    payload: { text, chunkIndex: idx },
-  }));
+  let total = 0;
 
-  await qdrant.upsert(collectionName, {
-    wait: true,
-    points,
-  });
+  for (let i = 0; i < chunks.length; i += MAX_POINTS_PER_BATCH) {
+    const chunkBatch = chunks.slice(i, i + MAX_POINTS_PER_BATCH);
+    const embeddingBatch = embeddings.slice(i, i + MAX_POINTS_PER_BATCH);
 
-  return points.length;
+    const points = chunkBatch.map((text, idx) => ({
+      id: randomUUID(),
+      vector: embeddingBatch[idx],
+      payload: { text, chunkIndex: i + idx },
+    }));
+
+    await qdrant.upsert(collectionName, {
+      wait: true,
+      points,
+    });
+
+    total += points.length;
+  }
+
+  return total;
 }
 
 
