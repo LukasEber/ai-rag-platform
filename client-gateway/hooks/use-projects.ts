@@ -120,12 +120,13 @@ export function useProjects() {
         setIndexingProjects(prev => new Set([...prev, newProject.id]));
       });
       
+      // Set loading to false immediately after API response
+      setCreateLoading(false);
       return true;
     } catch (e) {
       setError((e as Error).message);
-      return false;
-    } finally {
       setCreateLoading(false);
+      return false;
     }
   }, []);
 
@@ -170,12 +171,13 @@ export function useProjects() {
         });
       }
       
+      // Set loading to false immediately after API response
+      setUpdateLoading(false);
       return true;
     } catch (e) {
       setError((e as Error).message);
-      return false;
-    } finally {
       setUpdateLoading(false);
+      return false;
     }
   }, []);
 
@@ -198,12 +200,13 @@ export function useProjects() {
         });
       });
       
+      // Set loading to false immediately after API response
+      setDeleteLoading(false);
       return true;
     } catch (e) {
       setError((e as Error).message);
-      return false;
-    } finally {
       setDeleteLoading(false);
+      return false;
     }
   }, []);
 
@@ -213,12 +216,13 @@ export function useProjects() {
     try {
       const res = await fetchWithErrorHandlers(`/api/project?id=${projectId}`, { method: 'GET' });
       if (!res.ok) throw new Error('Failed to load project details.');
-      return await res.json();
+      const result = await res.json();
+      setDetailsLoading(false);
+      return result;
     } catch (e) {
       setError((e as Error).message);
-      return null;
-    } finally {
       setDetailsLoading(false);
+      return null;
     }
   }, []);
 
