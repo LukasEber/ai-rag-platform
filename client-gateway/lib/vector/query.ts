@@ -8,7 +8,7 @@ import pdfParse from 'pdf-parse';
 
 const VECTOR_SIZE = 1536; // OpenAI embedding size
 const DISTANCE = 'Cosine';
-const MAX_INPUTS_PER_BATCH = 2048;
+const MAX_TOKENS_PER_BATCH = 270_000;
 
 function getCollectionName(projectId: string) {
   return `project_${projectId}`;
@@ -48,11 +48,26 @@ async function ensureQdrantCollection(projectId: string) {
 
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   console.log('generating embeddings for', texts.length, 'texts');
-  const result: number[][] = [];
 
-  for (let i = 0; i < texts.length; i += MAX_INPUTS_PER_BATCH) {
-    const batch = texts.slice(i, i + MAX_INPUTS_PER_BATCH);
-    const embeddings = await embedBatch(batch);
+  const result: number[][] = [];
+  let currentBatch: string[] = [];
+  let currentTokenSum = 0;
+  for (const text of texts) {
+    const tokenCount = estimateTokenCount(text);
+
+    if (currentTokenSum + tokenCount > MAX_TOKENS_PER_BATCH) {
+      const embeddings = await embedBatch(currentBatch);
+      result.push(...embeddings);
+      currentBatch = [];
+      currentTokenSum = 0;
+    }
+
+    currentBatch.push(text);
+    currentTokenSum += tokenCount;
+  }
+
+  if (currentBatch.length > 0) {
+    const embeddings = await embedBatch(currentBatch);
     result.push(...embeddings);
   }
 
@@ -133,7 +148,7 @@ export async function queryProjectChunks(
   let tokenSum = 0;
 
   for (const chunk of filtered) {
-    if (tokenSum + chunk.tokens > 25000) break;
+    if (tokenSum + chunk.tokens > 200_000) break;
     chunks.push({ text: chunk.text, score: chunk.score, tokens: chunk.tokens });
     tokenSum += chunk.tokens;
   }
