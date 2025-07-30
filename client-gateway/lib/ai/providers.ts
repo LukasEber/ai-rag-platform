@@ -9,11 +9,11 @@ import { xai } from '@ai-sdk/xai';
 export const myProvider =
    customProvider({
       languageModels: {
-        'chat-model': xai('grok-4-0709'),
+        'chat-model': xai('grok-3-mini-fast'),
         'chat-model-reasoning': wrapLanguageModel({
-          model: xai('grok-4-0709'),
+          model: xai('grok-3-mini-beta'),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
-        'title-model': xai('grok-4-0709'),
+        'title-model': xai('grok-3-mini-fast')
       }
     });
