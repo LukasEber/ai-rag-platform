@@ -1,4 +1,3 @@
-import type { Geo } from '@vercel/functions';
 
 const regularPrompt = `You are a fact-based AI assistant. Your answers must be fully grounded in the provided project-specific context and structured for professional use.
 
@@ -30,27 +29,14 @@ If you receive multiple related context chunks, synthesize them holistically.
 `;
 
 
-export interface RequestHints {
-  city: Geo['city'];
-  country: Geo['country'];
-}
-
-const getRequestPromptFromHints = (requestHints: RequestHints) => `\
-About the origin of user's request:
-- city: ${requestHints.city}
-- country: ${requestHints.country}`;
-
 export const systemPrompt = ({
   selectedChatModel,
-  requestHints,
   context = '',
 }: {
   selectedChatModel: string;
-  requestHints: RequestHints;
   context?: string;
 }) => {
-  const requestPrompt = getRequestPromptFromHints(requestHints);
   const contextPrompt = context ? `\n\nContext:\n${context}` : '';
-  const fullPrompt = `${regularPrompt}${contextPrompt}\n\n${requestPrompt}`;
+  const fullPrompt = `${regularPrompt}${contextPrompt}`;
   return fullPrompt;
 };
