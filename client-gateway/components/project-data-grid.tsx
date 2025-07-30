@@ -61,7 +61,7 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
           ) : (
             <>
               <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse"></div>
-              <span>Indexing in progress...</span>
+              <span>Indexing...</span>
             </>
           )}
         </span>

@@ -182,7 +182,7 @@ export function Chat({
                           <span className="font-semibold">{project.name}</span>
                           <span className="ml-2 text-xs text-muted-foreground">
                             {project.visibility}
-                            {!isIndexed && ' • Indexing in progress...'}
+                            {!isIndexed && ' • Indexing...'}
                           </span>
                         </button>
                       </li>
