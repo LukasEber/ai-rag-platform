@@ -1,4 +1,4 @@
-import { embedText } from '@/lib/ai/embed';
+import { embedBatch, embedText } from '@/lib/ai/embed';
 import { randomUUID } from 'crypto';
 import { qdrant } from './qdrant';
 import { estimateTokenCount } from '../ai/utils';
@@ -8,6 +8,7 @@ import pdfParse from 'pdf-parse';
 
 const VECTOR_SIZE = 1536; // OpenAI embedding size
 const DISTANCE = 'Cosine';
+const MAX_INPUTS_PER_BATCH = 2048;
 
 function getCollectionName(projectId: string) {
   return `project_${projectId}`;
@@ -45,9 +46,17 @@ async function ensureQdrantCollection(projectId: string) {
   return collectionName;
 }
 
-async function generateEmbeddings(texts: string[]) {
-  console.log('generating embeddings', texts.length);
-  return await Promise.all(texts.map(embedText));
+export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  console.log('generating embeddings for', texts.length, 'texts');
+  const result: number[][] = [];
+
+  for (let i = 0; i < texts.length; i += MAX_INPUTS_PER_BATCH) {
+    const batch = texts.slice(i, i + MAX_INPUTS_PER_BATCH);
+    const embeddings = await embedBatch(batch);
+    result.push(...embeddings);
+  }
+
+  return result;
 }
 
 async function upsertChunks(projectId: string, chunks: string[], embeddings: number[][]) {
