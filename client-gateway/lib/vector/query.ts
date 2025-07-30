@@ -46,6 +46,7 @@ async function ensureQdrantCollection(projectId: string) {
 }
 
 async function generateEmbeddings(texts: string[]) {
+  console.log('generating embeddings', texts.length);
   return await Promise.all(texts.map(embedText));
 }
 
@@ -81,10 +82,8 @@ export async function ingestFilesToProject(files: File[], projectId: string) {
 
     const chunks = await splitTextIntoChunks(text);
     console.log('chunkLength', chunks.length);
-    console.log('chunks', chunks);
     const embeddings = await generateEmbeddings(chunks);
     console.log('embeddingsLength', embeddings.length);
-    console.log('embeddings', embeddings);
     const chunkCount = await upsertChunks(projectId, chunks, embeddings);
     console.log('chunkCount', chunkCount);
     const contextFile = await createContextFile({
