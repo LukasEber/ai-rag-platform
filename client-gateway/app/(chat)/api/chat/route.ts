@@ -114,7 +114,6 @@ if (projectId) {
   contextText = relevantChunks.map(c => c.text).join('\n\n');
 }
 
-    console.log('contextText', contextText);
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({

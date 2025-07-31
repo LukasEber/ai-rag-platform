@@ -124,12 +124,11 @@ export async function upsertChunks(
 
 
 export async function ingestFilesToProject(files: File[], projectId: string) {
-  console.log('ingesting files to project', files);
+  console.log('ingesting files to project', files.length);
   for (const file of files) {
     if (!file || file.size === 0) continue;
 
     const text = await extractTextFromFile(file);
-    console.log('text', text);
     if (!text.trim()) {
       console.warn(`[Ingestion] No text extracted from ${file.name}`);
       continue;
@@ -149,7 +148,6 @@ export async function ingestFilesToProject(files: File[], projectId: string) {
       embedded: false,
       chunkCount,
     });
-    console.log('contextFile', contextFile);
   }
 }
 
