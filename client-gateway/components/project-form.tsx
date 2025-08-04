@@ -104,7 +104,7 @@ export function ProjectForm({ initial, loading, onSubmit, submitLabel, allowMult
           id="file"
           name="files"
           type="file"
-          accept=".txt,.pdf"
+          accept=".txt,.pdf,.xlsx,.xls,.csv"
           multiple={!!allowMultipleFiles}
           onChange={handleFormChange}
           disabled={loading}

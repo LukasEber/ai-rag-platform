@@ -5,6 +5,7 @@ import { estimateTokenCount } from '../ai/utils';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { createContextFile, updateContextFileIndexingStatus, updateProjectIndexingStatus, updateContextFileChunkCount, getContextFilesByProjectId } from '../db/queries';
 import pdfParse from 'pdf-parse'; 
+import * as XLSX from 'xlsx';
 
 const VECTOR_SIZE = 1536; // OpenAI embedding size
 const DISTANCE = 'Cosine';
@@ -21,6 +22,24 @@ async function extractTextFromFile(file: File): Promise<string> {
     const { text } = await pdfParse(buf);
     return text;
   }
+
+  if (
+    file.type ===
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.name.endsWith('.xlsx')
+  ) {
+    const workbook = XLSX.read(buf, { type: 'buffer' });
+    let text = '';
+
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      text += csv + '\n';
+    }
+
+    return text;
+  }
+  
   return buf.toString('utf-8');
 }
 
