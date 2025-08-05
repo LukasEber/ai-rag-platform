@@ -6,6 +6,7 @@ import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
 import { createContextFile, updateContextFileIndexingStatus, updateProjectIndexingStatus, updateContextFileChunkCount, getContextFilesByProjectId } from '../db/queries';
 import pdfParse from 'pdf-parse'; 
 import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
 
 const VECTOR_SIZE = 1536; // OpenAI embedding size
 const DISTANCE = 'Cosine';
@@ -39,6 +40,15 @@ async function extractTextFromFile(file: File): Promise<string> {
 
     return text;
   }
+
+  if (
+    file.type ===
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.name.endsWith('.docx')
+  ) {
+    const result = await mammoth.extractRawText({ buffer: buf });
+    return result.value;
+  }
   
   return buf.toString('utf-8');
 }
@@ -64,7 +74,22 @@ async function splitTextIntoChunks(text: string): Promise<string[]> {
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 2000,
     chunkOverlap: 300,
-    separators: ['\n\n', '\n'],
+    separators: [
+      '\n\n',
+      '\n',
+      '\r\n',
+      '\t',
+      '. ',
+      ', ',
+      '; ',
+      ' - ',
+      ' — ',
+      ' – ',
+      '—',
+      '-',
+      ' ',
+      ''
+    ],
   });
 
   const documents = await splitter.createDocuments([text]);
