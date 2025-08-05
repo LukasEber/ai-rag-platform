@@ -45,7 +45,7 @@ export const contextFile = pgTable('ContextFile', {
 
   embedded: boolean('embedded').default(false),
   chunkCount: integer('chunkCount'),
-  indexingStatus: varchar('indexingStatus', { enum: ['pending', 'processing', 'completed', 'failed'] }).notNull().default('pending'),
+  indexingStatus: varchar('indexingStatus', { enum: ['pending', 'processing', 'completed', 'failed', 'completedWithoutData'] }).notNull().default('pending'),
 
   createdAt: timestamp('createdAt').defaultNow(),
 });

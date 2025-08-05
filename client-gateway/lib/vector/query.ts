@@ -278,7 +278,7 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
       const text = await extractTextFromFile(file);
       if (!text.trim()) {
         console.warn(`[Async Indexing] No text extracted from ${file.name}`);
-        await updateContextFileIndexingStatus({ id: contextFile.id, indexingStatus: 'failed' });
+        await updateContextFileIndexingStatus({ id: contextFile.id, indexingStatus: 'completedWithoutData' });
         continue;
       }
 
@@ -299,7 +299,7 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
 
   // Check if all files are completed
   const allFiles = await getContextFilesByProjectId({ projectId });
-  const allCompleted = allFiles.every(file => file.indexingStatus === 'completed');
+  const allCompleted = allFiles.every(file => file.indexingStatus === 'completed' || file.indexingStatus === 'completedWithoutData');
   
   if (allCompleted) {
     await updateProjectIndexingStatus({ id: projectId, isIndexed: true });

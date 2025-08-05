@@ -279,7 +279,7 @@ export async function getProjectById({ id }: { id: string }) {
 }
 
 
-export async function createContextFile({ projectId, fileName, mimeType, fileSize, embedded, chunkCount, indexingStatus }: { projectId: string; fileName: string; mimeType: string; fileSize: number; embedded?: boolean; chunkCount?: number; indexingStatus?: 'pending' | 'processing' | 'completed' | 'failed' }) {
+export async function createContextFile({ projectId, fileName, mimeType, fileSize, embedded, chunkCount, indexingStatus }: { projectId: string; fileName: string; mimeType: string; fileSize: number; embedded?: boolean; chunkCount?: number; indexingStatus?: 'pending' | 'processing' | 'completed' | 'failed' | 'completedWithoutData' }) {
   try {
     return await db.insert(contextFile).values({ id: crypto.randomUUID(), projectId, fileName, mimeType, fileSize, embedded: embedded ?? false, chunkCount, indexingStatus: indexingStatus ?? 'pending', createdAt: new Date() }).returning();
   } catch {
@@ -311,7 +311,7 @@ export async function updateProjectIndexingStatus({ id, isIndexed }: { id: strin
   }
 }
 
-export async function updateContextFileIndexingStatus({ id, indexingStatus }: { id: string; indexingStatus: 'pending' | 'processing' | 'completed' | 'failed' }) {
+export async function updateContextFileIndexingStatus({ id, indexingStatus }: { id: string; indexingStatus: 'pending' | 'processing' | 'completed' | 'failed' | 'completedWithoutData' }) {
   try {
     return await db.update(contextFile).set({ indexingStatus }).where(eq(contextFile.id, id)).returning();
   } catch {
