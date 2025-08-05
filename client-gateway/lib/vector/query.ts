@@ -299,7 +299,7 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
 
   // Check if all files are completed
   const allFiles = await getContextFilesByProjectId({ projectId });
-  const allCompleted = allFiles.every(file => file.indexingStatus === 'completed' || file.indexingStatus === 'completedWithoutData');
+  const allCompleted = allFiles.every(file => file.indexingStatus !== 'pending' && file.indexingStatus !== 'processing');
   
   if (allCompleted) {
     await updateProjectIndexingStatus({ id: projectId, isIndexed: true });
