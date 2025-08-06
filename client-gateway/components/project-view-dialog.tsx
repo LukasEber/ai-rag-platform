@@ -47,6 +47,7 @@ const getStatusInfo = (status: string) => {
 };
 
 export function ProjectViewDialog({ open, onOpenChange, project, onClose }: ProjectViewDialogProps) {
+  console.log('project in view dialog', project);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="max-w-lg w-full flex flex-col">

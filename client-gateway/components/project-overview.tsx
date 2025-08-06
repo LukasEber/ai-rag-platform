@@ -43,8 +43,10 @@ export function ProjectOverview() {
 
   // Handlers
   const handleViewProject = async (project: Project) => {
+    console.log('project', project);
     try {
       const details = await fetchProjectDetails(project.id);
+      console.log('project details', details);
       if (details) {
         setDialog({ type: 'view', project: details });
       } else {

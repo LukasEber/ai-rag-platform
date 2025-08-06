@@ -25,21 +25,23 @@ async function extractTextFromFile(file: File): Promise<string> {
   }
 
   if (
-    file.type ===
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
     file.name.endsWith('.xlsx')
   ) {
     const workbook = XLSX.read(buf, { type: 'buffer' });
     let text = '';
-
+  
     for (const sheetName of workbook.SheetNames) {
       const sheet = workbook.Sheets[sheetName];
-      const csv = XLSX.utils.sheet_to_csv(sheet);
-      text += csv + '\n';
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: '' }); // defval sorgt dafür, dass leere Zellen nicht verschwinden
+      text += `Sheet: ${sheetName}\n`;
+      for (const row of json) {
+        text += JSON.stringify(row) + '\n';
+      }
     }
-
+  
     return text;
-  }
+  }  
 
   if (
     file.type ===
