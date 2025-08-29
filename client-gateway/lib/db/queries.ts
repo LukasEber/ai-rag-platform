@@ -25,7 +25,9 @@ import {
   type Project,
   contextFile,
   project,
-  stream
+  stream,
+  excelSqlite,
+  type ExcelSqlite
 } from './schema';
 import { generateHashedPassword } from './utils';
 import type { VisibilityType } from '@/components/visibility-selector';
@@ -71,6 +73,27 @@ export async function deleteChatById({ id }: { id: string }) {
     return chatsDeleted;
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to delete chat by id');
+  }
+}
+
+export async function updateChatById({ id, title }: { id: string; title: string }) {
+  try {
+    const [updatedChat] = await db
+      .update(chat)
+      .set({ title })
+      .where(eq(chat.id, id))
+      .returning();
+    
+    if (!updatedChat) {
+      throw new ChatSDKError('not_found:database', 'Chat not found');
+    }
+    
+    return updatedChat;
+  } catch (error) {
+    if (error instanceof ChatSDKError) {
+      throw error;
+    }
+    throw new ChatSDKError('bad_request:database', 'Failed to update chat');
   }
 }
 
@@ -259,10 +282,18 @@ export async function deleteProjectById({ id }: { id: string }) {
     // 2. Delete chats for this project
     await db.delete(chat).where(eq(chat.projectId, id));
     
-    // 3. Delete context files for this project
+    // 3. Delete Excel SQLite records and clean up database files
+    const excelRecords = await getExcelSqliteByProjectId({ projectId: id });
+    for (const record of excelRecords) {
+      const { cleanupDatabase } = await import('../excel/sqlite');
+      cleanupDatabase(record.dbPath);
+    }
+    await deleteExcelSqliteByProjectId({ projectId: id });
+    
+    // 4. Delete context files for this project
     await db.delete(contextFile).where(eq(contextFile.projectId, id));
     
-    // 4. Finally delete the project
+    // 5. Finally delete the project
     return await db.delete(project).where(eq(project.id, id)).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to delete project');
@@ -297,6 +328,10 @@ export async function getContextFilesByProjectId({ projectId }: { projectId: str
 
 export async function deleteContextFileById({ id }: { id: string }) {
   try {
+    // First delete any ExcelSqlite records that reference this context file
+    await db.delete(excelSqlite).where(eq(excelSqlite.contextFileId, id));
+    
+    // Then delete the context file
     return await db.delete(contextFile).where(eq(contextFile.id, id)).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to delete context file');
@@ -324,5 +359,38 @@ export async function updateContextFileChunkCount({ id, chunkCount }: { id: stri
     return await db.update(contextFile).set({ chunkCount }).where(eq(contextFile.id, id)).returning();
   } catch {
     throw new ChatSDKError('bad_request:database', 'Failed to update context file chunk count');
+  }
+}
+
+// Excel SQLite functions
+export async function createExcelSqlite({ projectId, contextFileId, dbPath, tables, fileName }: { projectId: string; contextFileId: string; dbPath: string; tables: any[]; fileName: string }) {
+  try {
+    return await db.insert(excelSqlite).values({ 
+      id: crypto.randomUUID(), 
+      projectId, 
+      contextFileId, 
+      dbPath, 
+      tables, 
+      fileName, 
+      createdAt: new Date() 
+    }).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to create Excel SQLite record');
+  }
+}
+
+export async function getExcelSqliteByProjectId({ projectId }: { projectId: string }) {
+  try {
+    return await db.select().from(excelSqlite).where(eq(excelSqlite.projectId, projectId));
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to get Excel SQLite records');
+  }
+}
+
+export async function deleteExcelSqliteByProjectId({ projectId }: { projectId: string }) {
+  try {
+    return await db.delete(excelSqlite).where(eq(excelSqlite.projectId, projectId)).returning();
+  } catch {
+    throw new ChatSDKError('bad_request:database', 'Failed to delete Excel SQLite records');
   }
 }

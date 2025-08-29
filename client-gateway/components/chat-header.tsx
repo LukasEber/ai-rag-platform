@@ -13,6 +13,7 @@ import { memo } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { type VisibilityType, VisibilitySelector } from './visibility-selector';
 import type { Session } from 'next-auth';
+import { ChatUploadButton } from './chat-upload-button';
 
 function PureChatHeader({
   chatId,
@@ -20,12 +21,14 @@ function PureChatHeader({
   selectedVisibilityType,
   isReadonly,
   session,
+  projectId,
 }: {
   chatId: string;
   selectedModelId: string;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
   session: Session;
+  projectId?: string;
 }) {
   const router = useRouter();
   const { open } = useSidebar();
@@ -68,6 +71,18 @@ function PureChatHeader({
           selectedVisibilityType={selectedVisibilityType}
           className="order-1 md:order-3"
         />
+      )}
+
+      {projectId && (
+        <div className="order-1 md:order-4">
+          <ChatUploadButton
+            projectId={projectId}
+            onUploadComplete={() => {
+              // Optionally refresh the chat or show a notification
+              router.refresh();
+            }}
+          />
+        </div>
       )}
     </header>
   );

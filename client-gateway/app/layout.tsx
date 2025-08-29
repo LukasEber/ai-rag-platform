@@ -11,8 +11,8 @@ import { auth } from '@/app/(auth)/auth';
 import { cookies } from 'next/headers';
 
 export const metadata: Metadata = {
-  title: 'AI RAG Demo',
-  description: 'AI RAG Demo',
+  title: 'AI RAG Platform',
+  description: 'AI-powered document analysis and chat',
 };
 
 export const viewport = {
@@ -58,13 +58,10 @@ export default async function RootLayout({
 }>) {
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
   const isCollapsed = cookieStore.get('sidebar:state')?.value !== 'true';
+
   return (
     <html
       lang="en"
-      // `next-themes` injects an extra classname to the body element to avoid
-      // visual flicker before hydration. Hence the `suppressHydrationWarning`
-      // prop is necessary to avoid the React hydration mismatch warning.
-      // https://github.com/pacocoursey/next-themes?tab=readme-ov-file#with-app
       suppressHydrationWarning
       className={`${geist.variable} ${geistMono.variable}`}
     >
@@ -76,20 +73,9 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Toaster position="top-center" />
-          <SessionProvider>
-            <SidebarProvider defaultOpen={true}>
-              <AppSidebar user={session?.user} />
-              <SidebarInset>{children}</SidebarInset>
-            </SidebarProvider>
-          </SessionProvider>
-        </ThemeProvider>
+        <SessionProvider>
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );

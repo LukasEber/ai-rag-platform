@@ -15,6 +15,13 @@
       "when": 1753891993099,
       "tag": "0001_charming_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1756411051972,
+      "tag": "0002_eager_sharon_carter",
+      "breakpoints": true
     }
   ]
 }

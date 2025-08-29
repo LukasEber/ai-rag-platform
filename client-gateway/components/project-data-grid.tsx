@@ -11,6 +11,7 @@ import {
 import { Button } from './ui/button';
 import { GlobeIcon, LockIcon } from './icons';
 import { Project } from '@/types/project';
+import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 
 const VISIBILITY_OPTIONS = [
   {
@@ -34,6 +35,25 @@ interface ProjectDataGridProps {
 }
 
 export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }: ProjectDataGridProps) {
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    project: Project | null;
+  }>({
+    isOpen: false,
+    project: null,
+  });
+
+  const handleDeleteClick = (project: Project) => {
+    setDeleteDialog({ isOpen: true, project });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (deleteDialog.project) {
+      await onDelete(deleteDialog.project);
+    }
+    setDeleteDialog({ isOpen: false, project: null });
+  };
+
   const columnHelper = createColumnHelper<Project>();
   const columns: ColumnDef<Project, any>[] = [
     columnHelper.accessor('name', {
@@ -94,7 +114,7 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
               variant="destructive" 
               size="sm" 
               disabled={isIndexing}
-              onClick={() => onDelete(project)}
+              onClick={() => handleDeleteClick(project)}
               title={isIndexing ? 'Not available during indexing' : undefined}
             >
               Delete
@@ -121,31 +141,43 @@ export function ProjectDataGrid({ projects, loading, onView, onEdit, onDelete }:
   }
 
   return (
-    <div className="overflow-x-auto w-full max-w-6xl mx-auto">
-      <table className="min-w-[700px] divide-y divide-border bg-card rounded-lg">
-        <thead>
-          {table.getHeaderGroups().map(headerGroup => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map(header => (
-                <th key={header.id} className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map(row => (
-            <tr key={row.id} className="bg-card transition-colors hover:bg-muted">
-              {row.getVisibleCells().map(cell => (
-                <td key={cell.id} className="px-4 py-2 whitespace-nowrap">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div className="overflow-x-auto w-full max-w-6xl mx-auto">
+        <table className="min-w-[700px] divide-y divide-border bg-card rounded-lg">
+          <thead>
+            {table.getHeaderGroups().map(headerGroup => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map(header => (
+                  <th key={header.id} className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map(row => (
+              <tr key={row.id} className="bg-card transition-colors hover:bg-muted">
+                {row.getVisibleCells().map(cell => (
+                  <td key={cell.id} className="px-4 py-2 whitespace-nowrap">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <DeleteConfirmationDialog
+        isOpen={deleteDialog.isOpen}
+        onClose={() => setDeleteDialog({ isOpen: false, project: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Project"
+        description="Are you sure you want to delete this project? This action cannot be undone."
+        itemName={deleteDialog.project?.name}
+        type="project"
+      />
+    </>
   );
 } 

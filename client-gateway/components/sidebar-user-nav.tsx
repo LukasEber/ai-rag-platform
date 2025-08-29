@@ -81,7 +81,7 @@ export function SidebarUserNav({ user }: { user: User }) {
               <button
                 type="button"
                 className="w-full cursor-pointer"
-                onClick={() => {
+                onClick={async () => {
                   if (status === 'loading') {
                     toast({
                       type: 'error',
@@ -91,8 +91,17 @@ export function SidebarUserNav({ user }: { user: User }) {
 
                     return;
                   }
-                  signOut();
-                  window.location.href = '/login';
+                  
+                  try {
+                    await signOut({ 
+                      callbackUrl: '/login',
+                      redirect: true 
+                    });
+                  } catch (error) {
+                    console.error('Sign out error:', error);
+                    // Fallback redirect
+                    window.location.href = '/login';
+                  }
                 }}
               >
                 Sign out

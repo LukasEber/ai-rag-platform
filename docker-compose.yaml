@@ -14,6 +14,9 @@ services:
       - REDIS_URL=${REDIS_URL}
       - VECTOR_DB_URL=${VECTOR_DB_URL}
       - AUTH_TRUST_HOST=true
+      - EXCEL_DATA_DIR=/app/data
+    volumes:
+      - excel_data:/app/data
     command: sh -c "pnpm db:migrate && pnpm start"
   postgres:
     image: postgres:latest
@@ -46,3 +49,4 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  excel_data:

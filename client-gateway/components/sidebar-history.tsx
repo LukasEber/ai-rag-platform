@@ -7,16 +7,6 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
@@ -27,6 +17,7 @@ import { fetcher } from '@/lib/utils';
 import { ChatItem } from './sidebar-history-item';
 import useSWRInfinite from 'swr/infinite';
 import { LoaderIcon } from './icons';
+import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 
 type GroupedChats = {
   today: Chat[];
@@ -148,6 +139,45 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     }
   };
 
+  const handleRename = async (chatId: string, newTitle: string) => {
+    const renamePromise = fetch(`/api/chat/${chatId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ title: newTitle }),
+    });
+
+    toast.promise(renamePromise, {
+      loading: 'Renaming chat...',
+      success: () => {
+        // Update the chat history in SWR cache
+        mutate((chatHistories) => {
+          if (chatHistories) {
+            return chatHistories.map((chatHistory) => ({
+              ...chatHistory,
+              chats: chatHistory.chats.map((chat) =>
+                chat.id === chatId ? { ...chat, title: newTitle } : chat
+              ),
+            }));
+          }
+        });
+
+        // Also update the current chat if we're on the chat page
+        if (typeof window !== 'undefined') {
+          const currentPath = window.location.pathname;
+          if (currentPath === `/chat/${chatId}`) {
+            // Trigger a re-render by updating the page title
+            document.title = newTitle;
+          }
+        }
+
+        return 'Chat renamed successfully';
+      },
+      error: 'Failed to rename chat',
+    });
+  };
+
   if (!user) {
     return (
       <SidebarGroup>
@@ -230,6 +260,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onRename={handleRename}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -250,6 +281,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onRename={handleRename}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -270,6 +302,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onRename={handleRename}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -290,6 +323,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onRename={handleRename}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -310,6 +344,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                               setDeleteId(chatId);
                               setShowDeleteDialog(true);
                             }}
+                            onRename={handleRename}
                             setOpenMobile={setOpenMobile}
                           />
                         ))}
@@ -343,23 +378,14 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
         </SidebarGroupContent>
       </SidebarGroup>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your
-              chat and remove it from our servers.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>
-              Continue
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteConfirmationDialog
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={handleDelete}
+        title="Delete Chat"
+        description="Are you sure you want to delete this chat? This action cannot be undone."
+        type="chat"
+      />
     </>
   );
 }

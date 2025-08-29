@@ -3,10 +3,11 @@ import { randomUUID } from 'crypto';
 import { qdrant } from './qdrant';
 import { estimateTokenCount } from '../ai/utils';
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter';
-import { createContextFile, updateContextFileIndexingStatus, updateProjectIndexingStatus, updateContextFileChunkCount, getContextFilesByProjectId } from '../db/queries';
+import { createContextFile, updateContextFileIndexingStatus, updateProjectIndexingStatus, updateContextFileChunkCount, getContextFilesByProjectId, createExcelSqlite } from '../db/queries';
 import pdfParse from 'pdf-parse'; 
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import { importExcelToSQLite } from '../excel/sqlite';
 
 const VECTOR_SIZE = 1536; // OpenAI embedding size
 const DISTANCE = 'Cosine';
@@ -275,10 +276,14 @@ export async function ingestFilesToProjectAsync(files: File[], projectId: string
   });
 }
 
-async function ingestFilesToProjectWithStatus(files: File[], projectId: string) {
+export async function ingestFilesToProjectWithStatus(files: File[], projectId: string) {
   console.log('[Async Indexing] Processing', files.length, 'files for project', projectId);
   
-  for (const file of files) {
+  // Set project to indexing status
+  await updateProjectIndexingStatus({ id: projectId, isIndexed: false });
+  
+  try {
+    for (const file of files) {
     if (!file || file.size === 0) continue;
 
     const contextFileResult = await createContextFile({
@@ -309,6 +314,46 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
         continue;
       }
 
+      // Process Excel files for SQLite database
+      if (file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+          file.name.endsWith('.xlsx') || 
+          file.name.endsWith('.xls')) {
+        try {
+          console.log(`[TEST] Processing Excel file for SQLite conversion`, {
+            fileName: file.name,
+            fileSize: file.size,
+            projectId
+          });
+          
+          const buffer = Buffer.from(await file.arrayBuffer());
+          const excelResult = await importExcelToSQLite(buffer, projectId, file.name);
+          
+          // Store Excel SQLite information in database
+          await createExcelSqlite({
+            projectId,
+            contextFileId: contextFile.id,
+            dbPath: excelResult.dbPath,
+            tables: excelResult.tables,
+            fileName: file.name
+          });
+          
+          console.log(`[TEST] Excel SQLite conversion successful`, {
+            fileName: file.name,
+            tableCount: excelResult.tables.length,
+            totalRows: excelResult.tables.reduce((sum, t) => sum + t.rows, 0),
+            dbPath: excelResult.dbPath,
+            projectId
+          });
+        } catch (error) {
+          console.error(`[TEST] Excel SQLite conversion failed`, {
+            fileName: file.name,
+            projectId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          // Continue with vector processing even if SQLite creation fails
+        }
+      }
+
       const chunks = await splitTextIntoChunks(text).then(chunks => chunks.filter(isValidChunk));
       const embeddings = await generateEmbeddings(chunks);
       const chunkCount = await upsertChunks(projectId, chunks, embeddings);
@@ -333,5 +378,10 @@ async function ingestFilesToProjectWithStatus(files: File[], projectId: string) 
     console.log(`[Async Indexing] All files completed for project ${projectId}`);
   } else {
     console.log(`[Async Indexing] Some files still processing for project ${projectId}`);
+  }
+  } catch (error) {
+    console.error(`[Async Indexing] Failed to process files for project ${projectId}:`, error);
+    // Set project back to indexed status on error
+    await updateProjectIndexingStatus({ id: projectId, isIndexed: true });
   }
 }

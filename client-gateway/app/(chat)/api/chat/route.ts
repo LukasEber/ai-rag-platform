@@ -27,16 +27,21 @@ import type { ChatModel } from '@/lib/ai/models';
 import type { VisibilityType } from '@/components/visibility-selector';
 import { queryProjectChunks } from '@/lib/vector/query';
 import { getStreamContext } from '@/lib/db/utils';
+import { intelligentDataAgent } from '@/lib/excel/agent';
+import { hasExcelFiles, analyzeProjectDataSources } from '@/lib/excel/detection';
 
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
+  let json: any;
 
   try {
-    const json = await request.json();
-    console.log('json', json);
+    json = await request.json();
+    console.log('[API DEBUG] Raw JSON received:', json);
     requestBody = postRequestBodySchema.parse(json);
-    console.log('requestBody', requestBody);
-  } catch (_) {
+    console.log('[API DEBUG] Parsed requestBody:', requestBody);
+  } catch (error) {
+    console.error('[API DEBUG] Schema validation failed:', error);
+    console.error('[API DEBUG] Raw JSON that failed:', json);
     return new ChatSDKError('bad_request:api').toResponse();
   }
 
@@ -55,6 +60,20 @@ export async function POST(request: Request) {
       projectId?: string;
     } = requestBody;
 
+    console.log('[API DEBUG] Extracted projectId:', {
+      projectId,
+      projectIdType: typeof projectId,
+      projectIdLength: projectId?.length,
+      projectIdTrimmed: projectId?.trim(),
+      isEmpty: projectId?.trim() === ''
+    });
+
+    // Validate projectId if provided
+    if (projectId && projectId.trim() === '') {
+      console.error('[API DEBUG] Invalid projectId detected:', projectId);
+      return new ChatSDKError('bad_request:api', 'Invalid projectId provided').toResponse();
+    }
+
     const session = await auth();
 
     if (!session?.user) {
@@ -68,22 +87,33 @@ export async function POST(request: Request) {
         message,
       });
 
-      console.log('chat', chat);
-      console.log('projectId', projectId);
-      console.log('selectedVisibilityType', selectedVisibilityType);
-      console.log('title', title);
-      console.log('id', id);
-      console.log('userId', session.user.id);
-
+      console.log('[API DEBUG] Creating new chat:', {
+        chat,
+        projectId,
+        selectedVisibilityType,
+        title,
+        id,
+        userId: session.user.id,
+        projectIdForSave: projectId || undefined
+      });
 
       await saveChat({
         id,
         userId: session.user.id,
         title,
         visibility: selectedVisibilityType,
-        projectId: projectId ? projectId : undefined,
+        projectId: projectId || undefined,
       });
+      
+      console.log('[API DEBUG] Chat created successfully');
     } else {
+      console.log('[API DEBUG] Chat already exists:', {
+        chatId: chat.id,
+        chatProjectId: chat.projectId,
+        chatUserId: chat.userId,
+        requestProjectId: projectId
+      });
+      
       if (chat.userId !== session.user.id) {
         return new ChatSDKError('forbidden:chat').toResponse();
       }
@@ -108,11 +138,82 @@ export async function POST(request: Request) {
     await createStreamId({ streamId, chatId: id });
 
     let contextText = '';
+    let agentMetadata: any = {};
 
-if (projectId) {
-  const relevantChunks = await queryProjectChunks(projectId, message.parts.map((p: any) => p.text).join(' '));
-  contextText = relevantChunks.map(c => c.text).join('\n\n');
-}
+    if (projectId && projectId.trim() !== '') {
+      const userQuestion = message.parts.map((p: any) => p.text).join(' ');
+      
+      console.log(`[TEST] Processing chat request`, {
+        projectId,
+        userQuestion: userQuestion.substring(0, 100),
+        questionLength: userQuestion.length
+      });
+      
+      // Step 1: Quick check if project has Excel files
+      const hasExcel = await hasExcelFiles(projectId);
+      
+      console.log(`[TEST] Excel check result`, { projectId, hasExcel });
+      
+      if (hasExcel) {
+        // Step 2: Detailed analysis of data sources
+        const dataSourceAnalysis = await analyzeProjectDataSources(projectId);
+        
+        console.log(`[TEST] Data source analysis result`, {
+          projectId,
+          shouldUseAgent: dataSourceAnalysis.shouldUseAgent,
+          excelFileCount: dataSourceAnalysis.excelFiles.length,
+          totalFileCount: dataSourceAnalysis.totalFiles
+        });
+        
+        if (dataSourceAnalysis.shouldUseAgent) {
+          // Use intelligent agent for Excel + other files
+          console.log(`[TEST] Using intelligent agent for project ${projectId}`);
+          const agentResult = await intelligentDataAgent(userQuestion, projectId);
+          
+          contextText = agentResult.context;
+          agentMetadata = agentResult.metadata;
+          
+          // Add agent decision info to context for better LLM understanding
+          if (agentResult.decision) {
+            const decisionInfo = `[Agent Decision: ${agentResult.decision.selectedSource.type} (confidence: ${agentResult.decision.selectedSource.confidence})]\n`;
+            contextText = decisionInfo + contextText;
+          }
+          
+          console.log(`[TEST] Agent execution completed`, {
+            projectId,
+            mode: agentResult.mode,
+            contextLength: contextText.length,
+            metadata: agentMetadata,
+            iterations: agentResult.metadata?.totalIterations || 1,
+            confidence: agentResult.metadata?.confidence || 'unknown'
+          });
+        } else {
+          // Excel files exist but agent not needed (fallback to vector search)
+          console.log(`[TEST] Excel files exist but using vector search only for project ${projectId}`);
+          const relevantChunks = await queryProjectChunks(projectId, userQuestion);
+          contextText = relevantChunks.map(c => c.text).join('\n\n');
+          agentMetadata = { source: 'vector-search-only' };
+          
+          console.log(`[TEST] Vector search completed`, {
+            projectId,
+            chunkCount: relevantChunks.length,
+            contextLength: contextText.length
+          });
+        }
+      } else {
+        // No Excel files - use standard vector search
+        console.log(`[TEST] No Excel files, using standard vector search for project ${projectId}`);
+        const relevantChunks = await queryProjectChunks(projectId, userQuestion);
+        contextText = relevantChunks.map(c => c.text).join('\n\n');
+        agentMetadata = { source: 'vector-search-only' };
+        
+        console.log(`[TEST] Standard vector search completed`, {
+          projectId,
+          chunkCount: relevantChunks.length,
+          contextLength: contextText.length
+        });
+      }
+    }
 
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {

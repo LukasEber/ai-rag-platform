@@ -8,7 +8,7 @@ import { toast } from "@/components/toast";
 import { ProjectDataGrid } from './project-data-grid';
 import { ProjectViewDialog } from './project-view-dialog';
 import { ProjectEditDialog } from './project-edit-dialog';
-import { ProjectDeleteDialog } from './project-delete-dialog';
+import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
 import { ProjectCreateDialog } from './project-create-dialog';
 import { useProjects } from '@/hooks/use-projects';
 import { Project, ProjectWithFiles, ProjectFormData } from '@/types/project';
@@ -190,12 +190,13 @@ export function ProjectOverview() {
         onClose={() => setDialog({ type: null })}
       />
       {/* Delete Dialog */}
-      <ProjectDeleteDialog
-        open={dialog.type === 'delete'}
-        onOpenChange={open => setDialog(open && dialog.type === 'delete' && dialog.projectId ? dialog : { type: null })}
-        loading={deleteLoading}
-        onDelete={handleDelete}
+      <DeleteConfirmationDialog
+        isOpen={dialog.type === 'delete'}
         onClose={() => setDialog({ type: null })}
+        onConfirm={handleDelete}
+        title="Delete Project"
+        description="Are you sure you want to delete this project? This action cannot be undone."
+        type="project"
       />
     </div>
   );

@@ -56,15 +56,57 @@ export function Chat({
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const [persisting, setPersisting] = useState(false);
   const pathname = usePathname();
+  
+  // Get current project to check indexing status
+  const currentProject = projects.find(p => p.id === chatProjectIdRef.current);
+  const isProjectIndexing = currentProject && !currentProject.isIndexed;
+
+  // Optimistic update: if we just uploaded files, assume indexing started
+  const [optimisticIndexing, setOptimisticIndexing] = useState(false);
+  
+  // Listen for upload completion to set optimistic indexing
+  useEffect(() => {
+    const handleUploadComplete = () => {
+      setOptimisticIndexing(true);
+      // Reset optimistic state after 10 seconds
+      setTimeout(() => setOptimisticIndexing(false), 10000);
+    };
+
+    window.addEventListener('upload-complete', handleUploadComplete);
+    return () => window.removeEventListener('upload-complete', handleUploadComplete);
+  }, []);
+
+  // Show indexing state if either optimistic or actual
+  const showIndexingState = isProjectIndexing || optimisticIndexing;
+
+  // Poll for project status updates when we have a projectId
+  useEffect(() => {
+    if (!chatProjectIdRef.current) return;
+
+    // Initial fetch immediately
+    fetchProjects();
+
+    // Then poll every 2 seconds for faster updates
+    const pollInterval = setInterval(() => {
+      fetchProjects();
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [chatProjectIdRef.current, fetchProjects]);
 
   // Determine if this is a new chat (no projectId assigned)
   useEffect(() => {
+    // Always fetch projects immediately when component mounts
+    fetchProjects();
+    
     // Only show project dialog for new chats (on /chat, not /chat/[id])
     if ((pathname === '/chat') && (!chatProjectIdRef.current || chatProjectIdRef.current === '')) {
       setShowProjectDialog(true);
-      fetchProjects();
     }
-  }, [chatProjectIdRef, fetchProjects, pathname]);
+  }, [chatProjectIdRef.current, fetchProjects, pathname]);
+
+  // Prevent sending messages if no project is selected for new chats
+  const canSendMessage = chatProjectIdRef.current && chatProjectIdRef.current !== '';
 
   // Assign project to chat: just set state, no API call
   const assignProjectToChat = (projectId: string) => {
@@ -74,6 +116,13 @@ export function Chat({
     setShowProjectDialog(false);
     setPersisting(false);
   };
+
+  // Update chatProjectId when projectId prop changes (e.g., after chat creation)
+  useEffect(() => {
+    if (projectId && projectId !== chatProjectIdRef.current) {
+      chatProjectIdRef.current = projectId;
+    }
+  }, [projectId, chatProjectIdRef.current]);
 
   const {
     messages,
@@ -91,18 +140,31 @@ export function Chat({
     transport: new DefaultChatTransport({
       api: "/api/chat",
       fetch: fetchWithErrorHandlers,
-      prepareSendMessagesRequest({ messages, id, body }) {
-        return {
-          body: {
-            id,
-            message: messages.at(-1),
-            selectedChatModel: initialChatModel,
-            selectedVisibilityType: visibilityType,
-            projectId: chatProjectIdRef.current,
-            ...body,
-          },
-        };
-      },
+             prepareSendMessagesRequest({ messages, id, body }) {
+         const requestBody = {
+           id,
+           message: messages.at(-1),
+           selectedChatModel: initialChatModel,
+           selectedVisibilityType: visibilityType,
+           projectId: chatProjectIdRef.current,
+           ...body,
+         };
+         
+         console.log('[CHAT DEBUG] prepareSendMessagesRequest:', {
+           id,
+           chatProjectId: chatProjectIdRef.current,
+           projectId: requestBody.projectId,
+           messageId: requestBody.message?.id,
+           messageRole: requestBody.message?.role,
+           messageParts: requestBody.message?.parts,
+           selectedChatModel: requestBody.selectedChatModel,
+           selectedVisibilityType: requestBody.selectedVisibilityType,
+           bodyKeys: Object.keys(body || {}),
+           fullRequestBody: requestBody
+         });
+         
+         return { body: requestBody };
+       },
     }),
     onData: (dataPart) => {
       setDataStream((ds: any) => (ds ? [...ds, dataPart] : []));
@@ -124,7 +186,7 @@ export function Chat({
   const query = searchParams.get("query");
 
   useEffect(() => {
-    if (query && !hasAppendedQuery) {
+    if (query && !hasAppendedQuery && canSendMessage) {
       sendMessage({
         role: "user" as const,
         parts: [{ type: "text", text: query }],
@@ -133,7 +195,7 @@ export function Chat({
       setHasAppendedQuery(true);
       window.history.replaceState({}, "", `/chat/${id}`);
     }
-  }, [query, sendMessage, hasAppendedQuery, id]);
+  }, [query, sendMessage, hasAppendedQuery, id, canSendMessage]);
 
   useAutoResume({
     autoResume,
@@ -201,6 +263,7 @@ export function Chat({
           selectedVisibilityType={initialVisibilityType}
           isReadonly={isReadonly}
           session={session}
+          projectId={chatProjectIdRef.current}
         />
 
         <Messages
@@ -212,21 +275,47 @@ export function Chat({
           isReadonly={isReadonly}
         />
 
-        <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-          {!isReadonly && (
-            <MultimodalInput
-              chatId={id}
-              input={input}
-              setInput={setInput}
-              status={status}
-              stop={stop}
-              messages={messages}
-              setMessages={setMessages}
-              sendMessage={sendMessage}
-              selectedVisibilityType={visibilityType}
-            />
-          )}
-        </form>
+                          {showIndexingState ? (
+           <div className="flex items-center justify-center p-8 text-center">
+             <div className="max-w-md">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-gray-100 mx-auto mb-4"></div>
+               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                 Project is being indexed
+               </h3>
+               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                 Please wait while the documents are being processed. You can chat once indexing is complete.
+               </p>
+               {optimisticIndexing && !isProjectIndexing && (
+                 <p className="text-xs text-gray-500 dark:text-gray-500">
+                   Status update in progress...
+                 </p>
+               )}
+             </div>
+           </div>
+                 ) : (
+           <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
+             {!isReadonly && canSendMessage && (
+               <MultimodalInput
+                 chatId={id}
+                 input={input}
+                 setInput={setInput}
+                 status={status}
+                 stop={stop}
+                 messages={messages}
+                 setMessages={setMessages}
+                 sendMessage={sendMessage}
+                 selectedVisibilityType={visibilityType}
+               />
+             )}
+             {!isReadonly && !canSendMessage && (
+               <div className="flex items-center justify-center w-full p-4 text-center">
+                 <p className="text-sm text-gray-600 dark:text-gray-400">
+                   Please select a project to start chatting
+                 </p>
+               </div>
+             )}
+           </form>
+         )}
       </div>
     </>
   );

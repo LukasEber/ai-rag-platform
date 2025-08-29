@@ -5,10 +5,8 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { auth } from '@/app/(auth)/auth';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { DataStreamProvider } from '@/components/data-stream-provider';
-import Script from 'next/script';
 
-export default async function ChatLayout({
+export default async function ProjectLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -23,25 +21,17 @@ export default async function ChatLayout({
   }
 
   return (
-    <>
-      <Script
-        src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"
-        strategy="beforeInteractive"
-      />
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <Toaster position="top-center" />
-        <SidebarProvider defaultOpen={true}>
-          <AppSidebar user={session?.user} />
-          <SidebarInset>
-            <DataStreamProvider>{children}</DataStreamProvider>
-          </SidebarInset>
-        </SidebarProvider>
-      </ThemeProvider>
-    </>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <Toaster position="top-center" />
+      <SidebarProvider defaultOpen={true}>
+        <AppSidebar user={session?.user} />
+        <SidebarInset>{children}</SidebarInset>
+      </SidebarProvider>
+    </ThemeProvider>
   );
 }

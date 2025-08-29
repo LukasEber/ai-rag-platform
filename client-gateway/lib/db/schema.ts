@@ -53,6 +53,20 @@ export const contextFile = pgTable('ContextFile', {
 
 export type ContextFile = InferSelectModel<typeof contextFile>;
 
+export const excelSqlite = pgTable('ExcelSqlite', {
+  id: uuid('id').primaryKey().notNull().defaultRandom(),
+  projectId: uuid('projectId').notNull().references(() => project.id),
+  contextFileId: uuid('contextFileId').notNull().references(() => contextFile.id),
+  
+  dbPath: text('dbPath').notNull(),
+  tables: json('tables').notNull(), // Store TableInfo[] as JSON
+  fileName: text('fileName').notNull(),
+  
+  createdAt: timestamp('createdAt').defaultNow(),
+});
+
+export type ExcelSqlite = InferSelectModel<typeof excelSqlite>;
+
 
 export const chat = pgTable('Chat', {
   id: uuid('id').primaryKey().notNull().defaultRandom(),
